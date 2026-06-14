@@ -666,12 +666,15 @@ function SlotFrame(props: {
   acornCountdown: number;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const cabinetImageRef = useRef<HTMLImageElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const hasLoggedCabinetLayoutRef = useRef(false);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
+    const cabinetImage = cabinetImageRef.current;
     const grid = gridRef.current;
-    if (!frame || !grid) return;
+    if (!frame || !cabinetImage || !grid) return;
 
     const recompute = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -711,6 +714,31 @@ function SlotFrame(props: {
       frame.style.setProperty("--sprite-px", `${spritePx}px`);
       frame.style.setProperty("--gap-px", `${gapPx}px`);
 
+      if (!hasLoggedCabinetLayoutRef.current) {
+        const cabinetRect = cabinetImage.getBoundingClientRect();
+        const computedFrameStyles = getComputedStyle(frame);
+        console.log("[SlotFrame] cabinet layout calibration", {
+          cabinetRendered: {
+            left: cabinetRect.left,
+            top: cabinetRect.top,
+            width: cabinetRect.width,
+            height: cabinetRect.height,
+          },
+          cabinetNatural: {
+            width: cabinetImage.naturalWidth,
+            height: cabinetImage.naturalHeight,
+          },
+          devicePixelRatio: dpr,
+          scale,
+          cssVariables: {
+            "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
+            "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
+            "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
+          },
+        });
+        hasLoggedCabinetLayoutRef.current = true;
+      }
+
       if (import.meta.env.DEV && (totalW > backdropW + 0.5 || totalH > backdropH + 0.5)) {
         console.warn("[SlotFrame] grid exceeded panel backdrop", {
           frameW,
@@ -735,7 +763,7 @@ function SlotFrame(props: {
 
   return (
     <div className="slot-frame" ref={frameRef}>
-      <img src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
+      <img ref={cabinetImageRef} src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
       <div className="slot-panel-backdrop" aria-hidden />
       <div className="slot-panel" aria-hidden>
         {Array.from({ length: GRID_SIZE }).map((_, i) => (

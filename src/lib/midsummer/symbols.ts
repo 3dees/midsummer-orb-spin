@@ -58,18 +58,16 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
   hedgehog: { id: "hedgehog", name: "Hedgehog", sprite: hedgehogImg, baseOrbs: 2, description: "+2 Light Orbs." },
 };
 
-// The starting pool is a MULTISET: duplicates increase a symbol's appearance
-// odds. rollGrid() samples this array with replacement, so two Fireflies and
-// two Ferns means early grids are mostly Fireflies and Ferns.
+// The starting pool is a MULTISET of 5 symbols. The grid fills one cell per
+// symbol in the pool (capped at GRID_SIZE), so the player opens with 5 lit
+// cells out of 20 — drafting more symbols literally lights up more of the
+// grid over time.
 export const STARTING_POOL: SymbolId[] = [
   "firefly",
   "firefly",
-  "fern",
+  "firefly",
   "fern",
   "mushroom",
-  "fox",
-  "lantern",
-  "dandelion",
 ];
 
 export const DRAFT_POOL: SymbolId[] = [

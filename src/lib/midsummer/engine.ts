@@ -21,11 +21,24 @@ export interface ScoreResult {
   contributingCells: Set<number>;
 }
 
-/** Fill the grid with random picks from the player's pool. */
-export function rollGrid(pool: SymbolId[]): SymbolId[] {
-  const grid: SymbolId[] = [];
-  for (let i = 0; i < GRID_SIZE; i++) {
-    grid.push(pool[Math.floor(Math.random() * pool.length)]);
+/**
+ * Fill the grid with random picks from the player's pool. The grid always has
+ * GRID_SIZE cells, but only `min(pool.length, GRID_SIZE)` of them are filled
+ * — the rest are `null` (empty / inert). Each filled cell's position is
+ * chosen uniformly at random; the symbol in that cell is sampled with
+ * replacement from the pool.
+ */
+export function rollGrid(pool: SymbolId[]): (SymbolId | null)[] {
+  const grid: (SymbolId | null)[] = new Array(GRID_SIZE).fill(null);
+  const fillCount = Math.min(pool.length, GRID_SIZE);
+  // Reservoir-style: shuffle indexes 0..GRID_SIZE-1 and take the first N.
+  const indexes = Array.from({ length: GRID_SIZE }, (_, i) => i);
+  for (let i = indexes.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
+  }
+  for (let k = 0; k < fillCount; k++) {
+    grid[indexes[k]] = pool[Math.floor(Math.random() * pool.length)];
   }
   return grid;
 }
@@ -49,7 +62,7 @@ function neighbors(index: number): number[] {
  * cells that contributed value (for highlighting after a spin).
  */
 export function scoreGrid(
-  grid: SymbolId[],
+  grid: (SymbolId | null)[],
   ctx: { dandelionStreak: number },
 ): ScoreResult & { dandelionStreakNext: number } {
   const perCell = new Array<number>(GRID_SIZE).fill(0);
@@ -57,7 +70,9 @@ export function scoreGrid(
 
   // 1. Base orb values.
   for (let i = 0; i < GRID_SIZE; i++) {
-    const def = SYMBOLS[grid[i]];
+    const id = grid[i];
+    if (!id) continue; // empty cell — inert
+    const def = SYMBOLS[id];
     let value = def.baseOrbs;
 
     // Clover: each instance independently rolls a 10% chance to double its
@@ -70,11 +85,13 @@ export function scoreGrid(
     if (value > 0) contributing.add(i);
   }
 
-  // 2. Lantern adjacency bonus: +1 to each orthogonal neighbour.
+  // 2. Lantern adjacency bonus: +1 to each orthogonal neighbour that is
+  //    itself a filled cell. Empty cells cannot receive the bonus.
   for (let i = 0; i < GRID_SIZE; i++) {
     if (grid[i] !== "lantern") continue;
     contributing.add(i);
     for (const n of neighbors(i)) {
+      if (grid[n] == null) continue;
       perCell[n] += 1;
       contributing.add(n);
     }

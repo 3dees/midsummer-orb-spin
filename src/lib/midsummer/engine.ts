@@ -1,8 +1,8 @@
 // Midsummer Slots — pure game logic.
 //
-// The scorer is data-driven: it walks each cell's `synergies[]` and applies
-// them generically. Adding a synergy type means extending this file once and
-// the SymbolId roster gets it for free.
+// Data-driven scorer: walks each cell's `synergies[]` and applies them
+// generically. Adding a new symbol is data-only; adding a new synergy type
+// means extending the `switch` below once.
 
 import {
   SYMBOLS,
@@ -22,15 +22,10 @@ export const EMBERS_PER_TITHE = 5;
 export const TITHE_REQUIREMENTS = [20, 35, 50];
 
 export interface ScoreContext {
-  /** Total spins this run, BEFORE this one resolves (0-based). */
   totalSpins: number;
-  /** Tithe rounds cleared (0-based). Used for odd/even round bonuses. */
   roundNumber: number;
-  /** Per symbol id: how many spins (incl. this one) it has appeared on grid. */
   appearanceCounts: Record<string, number>;
-  /** Symbols destroyed this run (Crow / Standing Stone v2). Default 0. */
   destroyedThisRun: number;
-  /** Toggles each spin — Snail alternation. */
   alternatingTick: boolean;
 }
 
@@ -41,7 +36,6 @@ export interface ScoreResult {
   moonTokensGained: number;
   perCell: number[];
   contributingCells: Set<number>;
-  /** Updated counters to fold back into game state. */
   appearanceCountsNext: Record<string, number>;
 }
 
@@ -95,7 +89,6 @@ export function scoreGrid(
   const multCell = new Array<number>(GRID_SIZE).fill(1);
   const contributing = new Set<number>();
 
-  // Reward accumulators.
   const rewards: Record<Reward, number> = {
     light_orbs: 0,
     embers: 0,
@@ -103,7 +96,11 @@ export function scoreGrid(
     moon_token: 0,
   };
 
-  // 1. Base values for every filled cell.
+  // Dedupe one-shot global rewards: if many tiles of the same id share the
+  // same synergy instance reference, only fire once per spin.
+  const firedGlobals = new Set<Synergy>();
+
+  // 1. Base values.
   for (let i = 0; i < GRID_SIZE; i++) {
     const id = grid[i];
     if (!id) continue;
@@ -111,7 +108,7 @@ export function scoreGrid(
     if (perCell[i] > 0) contributing.add(i);
   }
 
-  // 2. Walk every cell's synergies and apply effects.
+  // 2. Apply each cell's synergies.
   for (let i = 0; i < GRID_SIZE; i++) {
     const id = grid[i];
     if (!id) continue;
@@ -120,42 +117,50 @@ export function scoreGrid(
     for (const syn of def.synergies as Synergy[]) {
       switch (syn.type) {
         case "adjacentBonus": {
-          contributing.add(i);
-          for (const n of neighbors(i)) {
-            const nid = grid[n];
-            if (nid == null) continue;
-            if (syn.targets.some((t) => symbolMatches(t, nid))) {
-              perCell[i] += syn.bonus;
-            }
-          }
-          // Lantern's "all" pushes the bonus OUT to neighbours, not in.
-          // Convention: when targets includes "all", treat as outgoing buff.
+          // Convention: targets=["all"] is an outgoing buff to neighbours
+          // (e.g. Lantern). Otherwise it's an inbound bonus to self.
           if (syn.targets.includes("all")) {
-            // recompute: undo the inbound interpretation above and broadcast.
-            // Simpler: directly add bonus to each filled neighbour and skip
-            // the self-bonus by zeroing it back out — but easier to model
-            // explicitly: subtract what we just added, then push outward.
             for (const n of neighbors(i)) {
               if (grid[n] == null) continue;
-              perCell[i] -= syn.bonus; // undo inbound count for "all"
               perCell[n] += syn.bonus;
               contributing.add(n);
+            }
+            contributing.add(i);
+          } else {
+            for (const n of neighbors(i)) {
+              const nid = grid[n];
+              if (nid == null) continue;
+              if (syn.targets.some((t) => symbolMatches(t, nid))) {
+                perCell[i] += syn.bonus;
+                contributing.add(i);
+              }
             }
           }
           break;
         }
         case "globalBonus": {
-          // +bonus per matching symbol elsewhere on the grid (self excluded).
-          let matches = 0;
-          for (let j = 0; j < GRID_SIZE; j++) {
-            if (j === i) continue;
-            const jid = grid[j];
-            if (jid == null) continue;
-            if (syn.targets.some((t) => symbolMatches(t, jid))) matches++;
-          }
-          if (matches > 0) {
-            perCell[i] += syn.bonus * matches;
+          if (syn.targets.includes("all")) {
+            // "All symbols +1" (Solstice Flame): push outward to every other
+            // filled tile.
+            for (let j = 0; j < GRID_SIZE; j++) {
+              if (j === i) continue;
+              if (grid[j] == null) continue;
+              perCell[j] += syn.bonus;
+              contributing.add(j);
+            }
             contributing.add(i);
+          } else {
+            let matches = 0;
+            for (let j = 0; j < GRID_SIZE; j++) {
+              if (j === i) continue;
+              const jid = grid[j];
+              if (jid == null) continue;
+              if (syn.targets.some((t) => symbolMatches(t, jid))) matches++;
+            }
+            if (matches > 0) {
+              perCell[i] += syn.bonus * matches;
+              contributing.add(i);
+            }
           }
           break;
         }
@@ -196,23 +201,20 @@ export function scoreGrid(
           break;
         }
         case "globalCountReward": {
-          if (gridCount(grid, syn.targets) >= syn.threshold) {
-            // Fire only once even if many tiles carry the same rule.
-            // Use a sentinel via a Set keyed by (rewardType+threshold+targets).
-            rewardOnce(rewards, syn, firedGlobalRewards);
+          if (gridCount(grid, syn.targets) >= syn.threshold && !firedGlobals.has(syn)) {
+            firedGlobals.add(syn);
+            rewards[syn.reward] += syn.amount;
           }
           break;
         }
         case "globalReward": {
-          if (gridHas(grid, syn.requires)) {
-            rewardOnce(rewards, syn, firedGlobalRewards);
+          if (gridHas(grid, syn.requires) && !firedGlobals.has(syn)) {
+            firedGlobals.add(syn);
+            rewards[syn.reward] += syn.amount;
           }
           break;
         }
         case "periodicReward": {
-          // Track per-id appearance count and fire when crossing a multiple.
-          // Counts are advanced ONCE per id below; here we just check
-          // whether this spin crossed a multiple for this id.
           const before = ctx.appearanceCounts[id] ?? 0;
           const after = before + 1;
           const crossings =
@@ -234,11 +236,7 @@ export function scoreGrid(
           const isOdd = ctx.roundNumber % 2 === 1;
           const match = syn.roundType === "odd" ? isOdd : !isOdd;
           if (!match) break;
-          let n = 0;
-          for (const jid of grid) {
-            if (jid == null) continue;
-            if (syn.targets.some((t) => symbolMatches(t, jid))) n++;
-          }
+          const n = gridCount(grid, syn.targets);
           if (n > 0) {
             perCell[i] += syn.bonus * n;
             contributing.add(i);
@@ -258,7 +256,7 @@ export function scoreGrid(
           if (capped > 0) contributing.add(i);
           break;
         }
-        // v2 placeholders — preserved as data, no scoring effect yet.
+        // v2 placeholders.
         case "transform":
         case "destroyAdjacent":
         case "destroyBonus":
@@ -277,19 +275,18 @@ export function scoreGrid(
     }
   }
 
-  // 3. Fold multipliers and floor at 0.
+  // 3. Fold multipliers, clamp at 0.
   for (let i = 0; i < GRID_SIZE; i++) {
     perCell[i] = Math.max(0, Math.round(perCell[i] * multCell[i]));
   }
 
-  // 4. Advance per-id appearance counts for next spin.
+  // 4. Advance per-id appearance counts (one tick per id present this spin).
   const appearanceCountsNext: Record<string, number> = { ...ctx.appearanceCounts };
-  const seenThisSpin = new Set<SymbolId>();
+  const seen = new Set<SymbolId>();
   for (const id of grid) {
-    if (!id) continue;
-    seenThisSpin.add(id);
+    if (id) seen.add(id);
   }
-  for (const id of seenThisSpin) {
+  for (const id of seen) {
     appearanceCountsNext[id] = (appearanceCountsNext[id] ?? 0) + 1;
   }
 
@@ -304,38 +301,6 @@ export function scoreGrid(
     contributingCells: contributing,
     appearanceCountsNext,
   };
-}
-
-// --- helpers --------------------------------------------------------------
-
-// Module-scoped set reset per scoreGrid call would be cleaner; instead we
-// dedupe globalReward / globalCountReward firings via a WeakSet-like key set
-// scoped to the call. We use a closure-free approach: tag each synergy
-// instance reference and clear at top of scoreGrid. Simpler — use a Set
-// in the helper and recreate per scoreGrid call.
-
-const firedGlobalRewards = new Set<Synergy>();
-function rewardOnce(
-  rewards: Record<Reward, number>,
-  syn: Synergy & { reward: Reward; amount: number },
-  fired: Set<Synergy>,
-) {
-  if (fired.has(syn)) return;
-  fired.add(syn);
-  rewards[syn.reward] += syn.amount;
-}
-// Reset the dedupe set at the start of every scoreGrid call. Module-level
-// Sets persist between calls, so we wrap scoreGrid to clear it.
-const _scoreGrid = scoreGrid;
-// (We can't easily wrap an exported binding mid-file; instead clear inline.)
-// Use a runtime guard: clear at the top of each scoreGrid call.
-// → re-export wrapper:
-export function scoreGridSafe(
-  grid: (SymbolId | null)[],
-  ctx: ScoreContext,
-): ScoreResult {
-  firedGlobalRewards.clear();
-  return _scoreGrid(grid, ctx);
 }
 
 export function pickDraft(candidates: SymbolId[]): SymbolId[] {

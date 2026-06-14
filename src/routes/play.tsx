@@ -293,7 +293,11 @@ function PlayPage() {
               const def = SYMBOLS[id];
               return (
                 <div key={id} className="pool-grid-chip" title={def.description}>
-                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  {def.sprite ? (
+                    <img src={def.sprite} alt={def.name} className="pixelart" />
+                  ) : (
+                    <span className="pool-grid-emoji" aria-hidden>{def.emoji}</span>
+                  )}
                   <span className="pool-grid-count">×{count}</span>
                   <span className="pool-grid-name">{def.name}</span>
                 </div>
@@ -337,7 +341,11 @@ function PlayPage() {
                   className="draft-card"
                   onClick={() => dispatch({ type: "PICK_DRAFT", id })}
                 >
-                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  {def.sprite ? (
+                    <img src={def.sprite} alt={def.name} className="pixelart" />
+                  ) : (
+                    <span className="draft-emoji" aria-hidden>{def.emoji}</span>
+                  )}
                   <div className="draft-name">{def.name}</div>
                   <div className="draft-desc">{def.description}</div>
                 </button>

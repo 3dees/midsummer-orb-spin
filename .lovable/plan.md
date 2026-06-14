@@ -1,118 +1,52 @@
 
-# Midsummer Slots — Prototype Plan
+# Convert to Slot Builder
 
-A roguelite slot machine prototype built as a TanStack route at `/play`, with the home `/` route redirecting to it so the preview shows the game immediately.
+Rework the spin/draft loop so the player's pool is the entire game — every spin samples from a weighted pool (duplicates = higher odds), and every spin offers a draft to grow that pool.
 
-## Scope
+## Changes to game logic (`src/lib/midsummer/engine.ts`, `symbols.ts`)
 
-- Single self-contained React route (one component file + one game-logic module) so it's easy to read in Cursor/VS Code later.
-- Portrait 9:16 stage, centered in any viewport, mobile-touch friendly.
-- All state in memory (React `useReducer`). No backend, no persistence.
+- `STARTING_POOL` becomes a multiset (array with duplicates), exactly:
+  ```
+  [firefly, firefly, fern, fern, mushroom, fox, lantern, dandelion]
+  ```
+  This is the literal `playerPool` — `rollGrid` already samples with replacement from it, so duplicates naturally bias the grid toward Fireflies/Ferns at the start.
+- Keep `rollGrid(pool)` unchanged (random with replacement). Add a tiny `poolCounts(pool)` helper for the HUD pool display so duplicates collapse into "Firefly ×2" chips instead of two identical icons.
+- `pickDraft(candidates, owned)`: change semantics — owned symbols are now ELIGIBLE to be offered again (drafting a second Fox doubles its odds). So just return 3 random distinct picks from the full `DRAFT_POOL` plus a "more of an existing symbol" slot. Simplest version: 3 random distinct symbols from `DRAFT_POOL` (no exclusion). Note in the code: TODO v2 — also offer duplicates of owned symbols and weight by rarity.
 
-## Asset plan
+## Changes to game flow (`src/routes/play.tsx`)
 
-Uploaded sprites used as-is (via Lovable Assets CDN pointers):
-- `final_background.png` → forest background
-- `mushroom.png`, `fox.png` → symbol art
-- `flame.png` → Ember icon
-- `crown.png` → win-screen flourish
-- `best_machine.png` / `machine_best2.png` → reference only (custom CSS frame instead, per your choice)
+- After every spin resolves, automatically enter `phase: { kind: 'draft', offers }`, regardless of whether a tithe just happened.
+- Draft overlay gets a **Skip** button (always visible) in addition to the 3 cards. Picking a card or skipping returns to `phase: 'idle'` so the next Spin button press works.
+- `PICK_DRAFT` appends one copy of the chosen symbol to `playerPool` (no dedupe). This is the only way the pool grows.
+- Tithe still triggers on spin 8 of every cycle — it now runs **before** the draft for that spin:
+  - Pass tithe → show "Tithe paid +5 Embers" overlay → continue → then the post-spin draft for spin 8 appears as normal.
+  - Fail tithe → loss screen (no draft).
+- Remove the old `CONTINUE_FROM_TITHE_PASS` draft (it picked from `DRAFT_POOL` minus owned). Tithe pass now just grants embers and advances the round; symbol growth is fully handled by the per-spin draft.
+- HUD "Pool" strip: render unique symbols with a small count badge (e.g. `🦊 ×1`, `🌿 ×2`) so the player can read their build at a glance and feel duplicates accumulating.
 
-Generated pixel-art sprites (same style as uploads, transparent PNGs, ~256px) for the missing symbols:
-- Starting pool: Firefly, Fern, Lantern, Dandelion
-- Draft pool: Moth, Clover, Rabbit, Owl, Honeybee, Crow, Hedgehog
-- Plus a Light Orb icon for the HUD
+## UX details
 
-Each is generated once via `imagegen--generate_image` (transparent_background=true) into `src/assets/sprites/` and imported normally.
+- The Spin button is hidden / disabled while the draft overlay is open — pressing Spin always means "commit to the current pool, then choose what to add."
+- Skip button styled as `ghost-btn`, labeled "Skip — keep pool lean."
+- Draft offers reshuffle every spin (`pickDraft` runs in the reducer when entering the draft phase).
+- Add a one-line tooltip under the pool strip: "Your pool: every spin samples from these symbols. Duplicates appear more often."
 
-## UI layout
+## What stays the same
 
-```
-+---------------------------------+
-| Forest background (fixed)       |
-|  +---------------------------+  |
-|  |  HUD: 🔥10  ✦0  💠0       |  |  top status bar
-|  |  Spin 3 / 8 · Tithe: 20   |  |  tithe progress
-|  +---------------------------+  |
-|  |   ╔═══ slot frame ═══╗    |  |
-|  |   ║ . . . . .        ║    |  |  5 cols
-|  |   ║ . . . . .        ║    |  |  4 rows
-|  |   ║ . . . . .        ║    |  |
-|  |   ║ . . . . .        ║    |  |
-|  |   ╚═══════════════════╝    |  |
-|  |                           |  |
-|  |  [   SPIN  (-1 🔥)   ]    |  |  big button
-|  +---------------------------+  |
-+---------------------------------+
-```
+- All scoring (Lantern adjacency, Mushroom 3+, Clover self-double, Dandelion ember trickle).
+- Tithe schedule: 8 spins, requirements 20 / 35 / 50, +5 Embers per pass, 3-round win.
+- Visuals, sprites, layout, animations.
 
-Custom slot frame built in CSS: dark teal cells with rounded corners, thin gold dividers, warm ember glow at the base, ivy/foxglove accents via gradients — matches the machine concept without trying to align to its painted grid.
+## Out of scope for this pass
 
-Overlay screens (absolutely positioned over the stage):
-- **Tithe warning** — appears on spin 7 and 8 of a cycle (pulsing bell + orbs needed).
-- **Tithe result** — pass = continue to draft; fail = Loss screen.
-- **Draft** — 3 random symbol cards from the available pool; click to add.
-- **Win** — after surviving all 3 tithe rounds (crown.png centerpiece).
-- **Loss** — dim overlay, "Try again" button reseeds state.
+- Moon Tokens / symbol removal (your point 6 — leave a TODO comment in `engine.ts`).
+- Weighted draft offers based on rarity tiers.
+- Offering duplicates of currently-owned symbols in the draft (TODO comment in `pickDraft`).
 
-## Game logic
+## Files touched
 
-`src/lib/midsummer/engine.ts` — pure functions, no React:
-- `SYMBOLS` registry with `{ id, name, sprite, baseOrbs, tags }`.
-- `rollGrid(pool)` → 20 symbol ids.
-- `scoreGrid(grid)` returns `{ orbs, embers, bloomShards, contributingCells: Set<number>, perCell: number[] }`:
-  - Sum base orbs per cell.
-  - **Lantern**: +1 orb to each orthogonal neighbor (up/down/left/right). Comment: `// TODO v2: diagonal adjacency unlock via item.`
-  - **Mushroom**: if grid contains ≥3 mushrooms, +1 Bloom Shard (once per spin).
-  - **Clover**: each instance independently 10% chance to double its own value (1→2). Comment per spec.
-  - **Dandelion**: increments a `spinsSinceEmber` counter on the dandelion symbol; every 4 spins where ≥1 dandelion appears, +1 Ember. (Simpler interpretation kept in code comment.)
-- `applyTithe(state)` checks `orbs >= required`, resets cycle, increments tithe stage.
+- `src/lib/midsummer/symbols.ts` — `STARTING_POOL` becomes multiset.
+- `src/lib/midsummer/engine.ts` — drop owned-exclusion in `pickDraft`, add `poolCounts` helper, add TODOs.
+- `src/routes/play.tsx` — reducer changes (auto-draft after every spin, draft has Skip, tithe path no longer opens its own draft), HUD pool strip with count badges.
 
-`src/routes/play.tsx`:
-- `useReducer` over `GameState { embers, orbs, bloomShards, pool, grid, spinInCycle, titheStage, titheRequired, phase, lastScore, contributingCells }`.
-- Actions: `SPIN`, `RESOLVE_SPIN`, `OPEN_TITHE`, `PAY_TITHE`, `PICK_DRAFT`, `RESTART`.
-- Spin flow:
-  1. Deduct 1 ember, set `phase: 'spinning'`, fill grid with random placeholders.
-  2. After 600ms (CSS fade/scale-in stagger per cell), set final grid + score, `phase: 'resolved'`.
-  3. Floating "+N ✦" number animates up from the spin button.
-  4. Contributing cells get a warm glow ring for 1.2s.
-  5. On spin 8 → run tithe check after scoring.
-
-## Constants
-
-```ts
-START = { embers: 10, orbs: 0, bloomShards: 0 }
-START_POOL = ['firefly','fern','mushroom','fox','lantern','dandelion']
-TITHE_REQS = [20, 35, 50]   // +15 each round, 3 rounds total
-TITHE_INTERVAL = 8
-EMBERS_PER_TITHE = 5
-DRAFT_POOL = ['moth','clover','rabbit','owl','honeybee','crow','hedgehog']
-```
-
-## Routing
-
-- `src/routes/play.tsx` — the game.
-- `src/routes/index.tsx` — replace placeholder with a `<Navigate to="/play" replace />` so the preview lands on the game.
-
-## Styling
-
-- Tailwind + a small scoped CSS block for the slot frame gradient and the pixel-art `image-rendering: pixelated` rule on every sprite.
-- Cell size derived from container width so the 5×4 grid stays inside the portrait frame on phones.
-
-## What I will NOT do in this pass
-
-- No persistence, no audio, no real item system, no Bloom Shard effects (counter only, with the TODO comment you requested).
-- No diagonal Lantern adjacency (comment placed at the adjacency code).
-- No animation library — pure CSS keyframes and the existing Tailwind animate utilities.
-
-## File touch list
-
-- `src/assets/*.asset.json` — pointers for uploaded sprites + background.
-- `src/assets/sprites/*.png` — generated pixel-art for missing symbols.
-- `src/lib/midsummer/engine.ts` — game logic.
-- `src/lib/midsummer/symbols.ts` — symbol registry.
-- `src/routes/play.tsx` — game UI/state.
-- `src/routes/index.tsx` — redirect to `/play`.
-- `src/styles.css` — small additions for frame glow + pixel-rendering helper class.
-
-After the build I'll verify by loading `/play`, spinning a few times, and confirming scoring, tithe trigger on spin 8, draft picker, and win/loss overlays all behave.
+After the change I'll spin a few times in the preview to confirm: pool grows by one when a card is picked, the grid composition visibly shifts toward newly added symbols, Skip works, and the tithe still triggers correctly on spin 8.

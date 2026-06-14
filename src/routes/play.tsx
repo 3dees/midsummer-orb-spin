@@ -645,17 +645,6 @@ const PANEL_BACKDROP = {
   width: 600,
   height: 475,
 };
-const PANEL_GRID_W = PANEL_GRID.cell * PANEL_GRID.cols + PANEL_GRID.gap * (PANEL_GRID.cols - 1);
-const PANEL_GRID_H = PANEL_GRID.cell * PANEL_GRID.rows + PANEL_GRID.gap * (PANEL_GRID.rows - 1);
-
-function snapDownToDevicePx(value: number, dpr: number, minDevicePx = 1) {
-  return Math.max(minDevicePx, Math.floor(value * dpr)) / dpr;
-}
-
-function snapNearestToDevicePx(value: number, dpr: number) {
-  return Math.round(value * dpr) / dpr;
-}
-
 function SlotFrame(props: {
   grid: (PoolTile | null)[];
   contributing: Set<number>;

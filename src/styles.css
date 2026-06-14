@@ -234,23 +234,25 @@
   max-width: 520px;
   margin: 0 auto;
   aspect-ratio: 1024 / 1536;
-  background: #000;
+  line-height: 0;
+  background: transparent;
+  overflow: hidden;
   border: none;
   --panel-left-px: 20.51%;
   --panel-top-px: 25.72%;
   --panel-width-px: 58.59%;
   --panel-height-px: 30.92%;
-  --grid-left-px: 20.7%;
-  --grid-top-px: 25.72%;
+  --grid-left-px: 19.53125%;
+  --grid-top-px: 24.08854%;
   --cell-px: 58px;
   --sprite-px: 32px;
-  --gap-px: 2px;
+  --gap-px: 3px;
 }
 img.cabinet-frame {
   position: absolute;
   inset: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
   display: block;
   mix-blend-mode: normal;
   outline: none;
@@ -356,8 +358,9 @@ img.cabinet-frame {
 }
 .slot-grid .cell {
   width: var(--cell-px);
-  height: var(--cell-px);
   aspect-ratio: 1 / 1;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .cell {

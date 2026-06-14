@@ -688,7 +688,10 @@ function SlotFrame(props: {
       const maxCellByBackdropW = Math.floor((backdropW * dpr - gapPx * dpr * 4) / 5);
       const maxCellByBackdropH = Math.floor((backdropH * dpr - gapPx * dpr * 3) / 4);
       const sourceCellDevicePx = Math.floor(PANEL_GRID.cell * scale * dpr);
-      const cellDevicePx = Math.max(8, Math.min(sourceCellDevicePx, maxCellByBackdropW, maxCellByBackdropH));
+      const cellDevicePx = Math.max(
+        8,
+        Math.min(sourceCellDevicePx, maxCellByBackdropW, maxCellByBackdropH),
+      );
       const cellPx = cellDevicePx / dpr;
       const totalW = cellPx * 5 + gapPx * 4;
       const totalH = cellPx * 4 + gapPx * 3;
@@ -709,7 +712,14 @@ function SlotFrame(props: {
       frame.style.setProperty("--gap-px", `${gapPx}px`);
 
       if (import.meta.env.DEV && (totalW > backdropW + 0.5 || totalH > backdropH + 0.5)) {
-        console.warn("[SlotFrame] grid exceeded panel backdrop", { frameW, frameH, backdropW, backdropH, totalW, totalH });
+        console.warn("[SlotFrame] grid exceeded panel backdrop", {
+          frameW,
+          frameH,
+          backdropW,
+          backdropH,
+          totalW,
+          totalH,
+        });
       }
     };
 

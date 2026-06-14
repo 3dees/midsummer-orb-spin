@@ -5,6 +5,7 @@ import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
 import crownAsset from "@/assets/sprites/crown.png.asset.json";
 import orbImg from "@/assets/sprites/orb.png";
+import cabinetImg from "@/assets/cabinet.png";
 
 import {
   DRAFT_POOL,

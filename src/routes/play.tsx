@@ -677,7 +677,7 @@ function SlotFrame(props: {
     const cabinetRect = cabinetImage.getBoundingClientRect();
     if (cabinetRect.width <= 0 || cabinetRect.height <= 0) return;
     const computedFrameStyles = getComputedStyle(frame);
-    console.log("[SlotFrame] cabinet layout calibration", {
+    const payload = {
       cabinetRendered: {
         left: cabinetRect.left,
         top: cabinetRect.top,
@@ -694,7 +694,8 @@ function SlotFrame(props: {
         "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
         "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
       },
-    });
+    };
+    console.log(`[SlotFrame] cabinet layout calibration ${JSON.stringify(payload)}`);
     hasLoggedCabinetLayoutRef.current = true;
   }, []);
 

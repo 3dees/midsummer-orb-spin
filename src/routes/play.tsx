@@ -629,8 +629,30 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
   );
 }
 
-const INNER_PANEL_W_RATIO = 0.7375;
-const INNER_PANEL_H_RATIO = 0.531;
+const CABINET_SOURCE_W = 1024;
+const CABINET_SOURCE_H = 1536;
+const PANEL_GRID = {
+  left: 232,
+  top: 501,
+  cell: 108,
+  gap: 5,
+};
+const PANEL_BACKDROP = {
+  left: 222,
+  top: 398,
+  width: 580,
+  height: 650,
+};
+const PANEL_GRID_W = PANEL_GRID.cell * 5 + PANEL_GRID.gap * 4;
+const PANEL_GRID_H = PANEL_GRID.cell * 4 + PANEL_GRID.gap * 3;
+
+function snapDownToDevicePx(value: number, dpr: number, minDevicePx = 1) {
+  return Math.max(minDevicePx, Math.floor(value * dpr)) / dpr;
+}
+
+function snapNearestToDevicePx(value: number, dpr: number) {
+  return Math.round(value * dpr) / dpr;
+}
 
 function SlotFrame(props: {
   grid: (PoolTile | null)[];
@@ -656,50 +678,38 @@ function SlotFrame(props: {
       const frameW = frame.clientWidth;
       const frameH = frame.clientHeight;
       if (frameW <= 0 || frameH <= 0) return;
-      // Cabinet's painted inner panel measures ~73.75% wide × ~53.1% tall
-      // of the cabinet image. Fit a 5:4 grid of square cells inside that
-      // rectangle, choosing whichever axis is the binding constraint, then
-      // snap to whole device pixels so columns/rows align exactly.
-      const innerW = frameW * INNER_PANEL_W_RATIO;
-      const innerH = frameH * INNER_PANEL_H_RATIO;
-      const gapDevicePx = Math.max(1, Math.round(2 * dpr));
-      const cellByW = Math.floor((innerW * dpr - gapDevicePx * 4) / 5);
-      const cellByH = Math.floor((innerH * dpr - gapDevicePx * 3) / 4);
-      // Clamp: pick the tighter axis so the grid can NEVER exceed the panel.
-      const cellDevicePx = Math.max(8, Math.min(cellByW, cellByH));
-      const cellPx = cellDevicePx / dpr;
-      const gapPx = gapDevicePx / dpr;
-      const spriteDevicePx = Math.max(8, Math.floor(cellDevicePx * 0.78));
-      const spritePx = spriteDevicePx / dpr;
-      grid.style.setProperty("--cell-px", `${cellPx}px`);
-      grid.style.setProperty("--sprite-px", `${spritePx}px`);
-      grid.style.setProperty("--gap-px", `${gapPx}px`);
+      const scale = Math.min(frameW / CABINET_SOURCE_W, frameH / CABINET_SOURCE_H);
+      const backdropW = snapNearestToDevicePx(PANEL_BACKDROP.width * scale, dpr);
+      const backdropH = snapNearestToDevicePx(PANEL_BACKDROP.height * scale, dpr);
+      const backdropLeft = snapNearestToDevicePx(PANEL_BACKDROP.left * scale, dpr);
+      const backdropTop = snapNearestToDevicePx(PANEL_BACKDROP.top * scale, dpr);
 
-      // Post-layout overflow check: if the rendered grid would exceed the
-      // painted inner panel for any reason (font zoom, browser rounding,
-      // future style edits), shrink the cell by one device-pixel step until
-      // it fits, and warn in dev so the ratios can be retuned.
+      const gapPx = snapDownToDevicePx(PANEL_GRID.gap * scale, dpr);
+      const maxCellByBackdropW = Math.floor((backdropW * dpr - gapPx * dpr * 4) / 5);
+      const maxCellByBackdropH = Math.floor((backdropH * dpr - gapPx * dpr * 3) / 4);
+      const sourceCellDevicePx = Math.floor(PANEL_GRID.cell * scale * dpr);
+      const cellDevicePx = Math.max(8, Math.min(sourceCellDevicePx, maxCellByBackdropW, maxCellByBackdropH));
+      const cellPx = cellDevicePx / dpr;
       const totalW = cellPx * 5 + gapPx * 4;
       const totalH = cellPx * 4 + gapPx * 3;
-      if (totalW > innerW + 0.5 || totalH > innerH + 0.5) {
-        const safeCellDevice = Math.max(
-          8,
-          Math.min(
-            Math.floor((innerW * dpr - gapDevicePx * 4) / 5),
-            Math.floor((innerH * dpr - gapDevicePx * 3) / 4),
-            cellDevicePx - 1,
-          ),
-        );
-        const safeCellPx = safeCellDevice / dpr;
-        const safeSpritePx = Math.max(8, Math.floor(safeCellDevice * 0.78)) / dpr;
-        grid.style.setProperty("--cell-px", `${safeCellPx}px`);
-        grid.style.setProperty("--sprite-px", `${safeSpritePx}px`);
-        if (import.meta.env.DEV) {
-          console.warn(
-            "[SlotFrame] grid clamped to fit inner panel",
-            { frameW, frameH, innerW, innerH, totalW, totalH, cellPx, safeCellPx },
-          );
-        }
+      const gridCenterX = (PANEL_GRID.left + PANEL_GRID_W / 2) * scale;
+      const gridCenterY = (PANEL_GRID.top + PANEL_GRID_H / 2) * scale;
+      const gridLeft = snapNearestToDevicePx(gridCenterX - totalW / 2, dpr);
+      const gridTop = snapNearestToDevicePx(gridCenterY - totalH / 2, dpr);
+      const spritePx = Math.max(8, Math.floor(cellDevicePx * 0.74)) / dpr;
+
+      frame.style.setProperty("--panel-left-px", `${backdropLeft}px`);
+      frame.style.setProperty("--panel-top-px", `${backdropTop}px`);
+      frame.style.setProperty("--panel-width-px", `${backdropW}px`);
+      frame.style.setProperty("--panel-height-px", `${backdropH}px`);
+      frame.style.setProperty("--grid-left-px", `${gridLeft}px`);
+      frame.style.setProperty("--grid-top-px", `${gridTop}px`);
+      frame.style.setProperty("--cell-px", `${cellPx}px`);
+      frame.style.setProperty("--sprite-px", `${spritePx}px`);
+      frame.style.setProperty("--gap-px", `${gapPx}px`);
+
+      if (import.meta.env.DEV && (totalW > backdropW + 0.5 || totalH > backdropH + 0.5)) {
+        console.warn("[SlotFrame] grid exceeded panel backdrop", { frameW, frameH, backdropW, backdropH, totalW, totalH });
       }
     };
 
@@ -716,6 +726,12 @@ function SlotFrame(props: {
   return (
     <div className="slot-frame" ref={frameRef}>
       <img src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
+      <div className="slot-panel-backdrop" aria-hidden />
+      <div className="slot-panel" aria-hidden>
+        {Array.from({ length: GRID_SIZE }).map((_, i) => (
+          <div key={i} className="panel-cell" />
+        ))}
+      </div>
       <div className="slot-grid" ref={gridRef}>
         {props.grid.map((tile, i) => {
           if (tile == null) {

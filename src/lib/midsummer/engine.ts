@@ -7,9 +7,11 @@
 import {
   SYMBOLS,
   symbolMatches,
+  groupsForSymbol,
   type Reward,
   type Synergy,
   type SymbolId,
+  type SynergyGroupId,
 } from "./symbols";
 
 export const GRID_COLS = 5;
@@ -21,6 +23,19 @@ export const TITHE_INTERVAL = 8;
 export const EMBERS_PER_TITHE = 5;
 export const TITHE_REQUIREMENTS = [20, 35, 50];
 
+/** A single physical tile in the player's bag — ages independently. */
+export interface PoolTile {
+  uid: string;
+  id: SymbolId;
+  age: number;
+}
+
+let _uid = 0;
+export function makeTile(id: SymbolId): PoolTile {
+  _uid += 1;
+  return { uid: `t${_uid}-${Math.random().toString(36).slice(2, 7)}`, id, age: 0 };
+}
+
 export interface ScoreContext {
   totalSpins: number;
   roundNumber: number;
@@ -28,6 +43,23 @@ export interface ScoreContext {
   destroyedThisRun: number;
   alternatingTick: boolean;
 }
+
+export type SpinEvent =
+  | { kind: "base"; cell: number; id: SymbolId; orbs: number }
+  | {
+      kind: "synergy";
+      cell: number;
+      id: SymbolId;
+      synergyType: Synergy["type"];
+      description: string;
+      orbsDelta?: number;
+      multiplier?: number;
+      rewardKind?: Reward;
+      rewardAmount?: number;
+      group?: SynergyGroupId;
+      greenManBoost?: boolean;
+    }
+  | { kind: "transform"; cell: number; from: SymbolId; to: SymbolId };
 
 export interface ScoreResult {
   orbs: number;
@@ -37,11 +69,12 @@ export interface ScoreResult {
   perCell: number[];
   contributingCells: Set<number>;
   appearanceCountsNext: Record<string, number>;
+  events: SpinEvent[];
 }
 
 /** Place exact pool tiles into random cells, leaving the rest null. */
-export function rollGrid(pool: SymbolId[]): (SymbolId | null)[] {
-  const grid: (SymbolId | null)[] = new Array(GRID_SIZE).fill(null);
+export function rollGrid(pool: PoolTile[]): (PoolTile | null)[] {
+  const grid: (PoolTile | null)[] = new Array(GRID_SIZE).fill(null);
   const indexes = Array.from({ length: GRID_SIZE }, (_, i) => i);
   for (let i = indexes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -55,6 +88,11 @@ export function rollGrid(pool: SymbolId[]): (SymbolId | null)[] {
   const fillCount = Math.min(tiles.length, GRID_SIZE);
   for (let k = 0; k < fillCount; k++) grid[indexes[k]] = tiles[k];
   return grid;
+}
+
+/** Convenience: ids-only view of a tile grid. */
+export function idsOf(grid: (PoolTile | null)[]): (SymbolId | null)[] {
+  return grid.map((t) => (t ? t.id : null));
 }
 
 function neighbors(index: number): number[] {
@@ -82,12 +120,16 @@ function gridCount(grid: (SymbolId | null)[], targets: string[]): number {
 }
 
 export function scoreGrid(
-  grid: (SymbolId | null)[],
+  tileGrid: (PoolTile | null)[],
   ctx: ScoreContext,
 ): ScoreResult {
+  const grid: (SymbolId | null)[] = idsOf(tileGrid);
   const perCell = new Array<number>(GRID_SIZE).fill(0);
   const multCell = new Array<number>(GRID_SIZE).fill(1);
   const contributing = new Set<number>();
+  const events: SpinEvent[] = [];
+  const greenManOnGrid = gridHas(grid, "green_man");
+  const greenManTags = new Set(["forest_floor", "flower"]);
 
   const rewards: Record<Reward, number> = {
     light_orbs: 0,
@@ -105,7 +147,10 @@ export function scoreGrid(
     const id = grid[i];
     if (!id) continue;
     perCell[i] = SYMBOLS[id].baseValue;
-    if (perCell[i] > 0) contributing.add(i);
+    if (perCell[i] > 0) {
+      contributing.add(i);
+      events.push({ kind: "base", cell: i, id, orbs: perCell[i] });
+    }
   }
 
   // 2. Apply each cell's synergies.
@@ -117,31 +162,43 @@ export function scoreGrid(
     for (const syn of def.synergies as Synergy[]) {
       switch (syn.type) {
         case "adjacentBonus": {
-          // Convention: targets=["all"] is an outgoing buff to neighbours
-          // (e.g. Lantern). Otherwise it's an inbound bonus to self.
           if (syn.targets.includes("all")) {
             for (const n of neighbors(i)) {
               if (grid[n] == null) continue;
               perCell[n] += syn.bonus;
               contributing.add(n);
+              events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus });
             }
             contributing.add(i);
           } else {
-            for (const n of neighbors(i)) {
+            // Green Man treats forest_floor / flower targets as adjacent
+            // grid-wide (not just orthogonal neighbours).
+            const useGlobal =
+              greenManOnGrid && syn.targets.some((t) => greenManTags.has(t));
+            const scanIndexes = useGlobal
+              ? Array.from({ length: GRID_SIZE }, (_, k) => k).filter((k) => k !== i)
+              : neighbors(i);
+            let matches = 0;
+            for (const n of scanIndexes) {
               const nid = grid[n];
               if (nid == null) continue;
-              if (syn.targets.some((t) => symbolMatches(t, nid))) {
-                perCell[i] += syn.bonus;
-                contributing.add(i);
-              }
+              if (syn.targets.some((t) => symbolMatches(t, nid))) matches++;
+            }
+            if (matches > 0) {
+              perCell[i] += syn.bonus * matches;
+              contributing.add(i);
+              events.push({
+                kind: "synergy", cell: i, id, synergyType: syn.type,
+                description: syn.description, orbsDelta: syn.bonus * matches,
+                greenManBoost: useGlobal,
+                group: useGlobal ? "green_blessing" : undefined,
+              });
             }
           }
           break;
         }
         case "globalBonus": {
           if (syn.targets.includes("all")) {
-            // "All symbols +1" (Solstice Flame): push outward to every other
-            // filled tile.
             for (let j = 0; j < GRID_SIZE; j++) {
               if (j === i) continue;
               if (grid[j] == null) continue;
@@ -149,6 +206,7 @@ export function scoreGrid(
               contributing.add(j);
             }
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus });
           } else {
             let matches = 0;
             for (let j = 0; j < GRID_SIZE; j++) {
@@ -160,6 +218,7 @@ export function scoreGrid(
             if (matches > 0) {
               perCell[i] += syn.bonus * matches;
               contributing.add(i);
+              events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * matches });
             }
           }
           break;
@@ -167,20 +226,24 @@ export function scoreGrid(
         case "globalMultiplier": {
           const count = gridCount(grid, syn.targets);
           if (syn.requires != null && count < syn.requires) break;
+          let touched = false;
           for (let j = 0; j < GRID_SIZE; j++) {
             const jid = grid[j];
             if (jid == null) continue;
             if (syn.targets.some((t) => symbolMatches(t, jid))) {
               multCell[j] *= syn.multiplier;
               contributing.add(j);
+              touched = true;
             }
           }
+          if (touched) events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, multiplier: syn.multiplier });
           break;
         }
         case "multipleBonus": {
           if (gridCount(grid, syn.targets) >= syn.requires) {
             multCell[i] *= syn.multiplier;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, multiplier: syn.multiplier });
           }
           break;
         }
@@ -190,6 +253,7 @@ export function scoreGrid(
           if (present && absent) {
             perCell[i] += syn.bonus;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus });
           }
           break;
         }
@@ -197,6 +261,7 @@ export function scoreGrid(
           if (Math.random() < syn.chance) {
             multCell[i] *= syn.multiplier;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, multiplier: syn.multiplier });
           }
           break;
         }
@@ -204,6 +269,7 @@ export function scoreGrid(
           if (gridCount(grid, syn.targets) >= syn.threshold && !firedGlobals.has(syn)) {
             firedGlobals.add(syn);
             rewards[syn.reward] += syn.amount;
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, rewardKind: syn.reward, rewardAmount: syn.amount });
           }
           break;
         }
@@ -211,6 +277,7 @@ export function scoreGrid(
           if (gridHas(grid, syn.requires) && !firedGlobals.has(syn)) {
             firedGlobals.add(syn);
             rewards[syn.reward] += syn.amount;
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, rewardKind: syn.reward, rewardAmount: syn.amount });
           }
           break;
         }
@@ -222,6 +289,7 @@ export function scoreGrid(
           if (crossings > 0) {
             rewards[syn.reward] += syn.amount * crossings;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, rewardKind: syn.reward, rewardAmount: syn.amount * crossings });
           }
           break;
         }
@@ -229,6 +297,7 @@ export function scoreGrid(
           if (ctx.alternatingTick) {
             multCell[i] *= syn.multiplier;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, multiplier: syn.multiplier });
           }
           break;
         }
@@ -240,12 +309,16 @@ export function scoreGrid(
           if (n > 0) {
             perCell[i] += syn.bonus * n;
             contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * n });
           }
           break;
         }
         case "spinCounter": {
           perCell[i] += syn.bonus * ctx.totalSpins;
-          if (ctx.totalSpins > 0) contributing.add(i);
+          if (ctx.totalSpins > 0) {
+            contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * ctx.totalSpins });
+          }
           break;
         }
         case "runningTotal": {
@@ -253,7 +326,10 @@ export function scoreGrid(
             syn.tracks === "destroyed_symbols" ? ctx.destroyedThisRun : 0;
           const capped = Math.min(tracked, syn.cap);
           perCell[i] += syn.bonus * capped;
-          if (capped > 0) contributing.add(i);
+          if (capped > 0) {
+            contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * capped });
+          }
           break;
         }
         // v2 placeholders.
@@ -300,6 +376,7 @@ export function scoreGrid(
     perCell,
     contributingCells: contributing,
     appearanceCountsNext,
+    events,
   };
 }
 
@@ -308,8 +385,11 @@ export function pickDraft(candidates: SymbolId[]): SymbolId[] {
   return shuffled.slice(0, 3);
 }
 
-export function poolCounts(pool: SymbolId[]): Array<[SymbolId, number]> {
+export function poolCounts(pool: PoolTile[]): Array<[SymbolId, number]> {
   const counts = new Map<SymbolId, number>();
-  for (const id of pool) counts.set(id, (counts.get(id) ?? 0) + 1);
+  for (const t of pool) counts.set(t.id, (counts.get(t.id) ?? 0) + 1);
   return Array.from(counts.entries());
 }
+
+// keep `groupsForSymbol` re-exported through engine for convenience
+export { groupsForSymbol };

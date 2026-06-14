@@ -51,11 +51,15 @@ interface GameState {
   embers: number;
   orbs: number; // banked towards tithe
   bloomShards: number;
+  moonTokens: number;
   pool: SymbolId[];
   grid: (SymbolId | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
   titheRound: number; // 0..TITHE_REQUIREMENTS.length
-  dandelionStreak: number;
+  totalSpins: number;
+  alternatingTick: boolean;
+  destroyedThisRun: number;
+  appearanceCounts: Record<string, number>;
   lastScore: number;
   contributingCells: Set<number>;
   phase: Phase;
@@ -66,11 +70,15 @@ function initialState(): GameState {
     embers: START_EMBERS,
     orbs: 0,
     bloomShards: 0,
+    moonTokens: 0,
     pool: [...STARTING_POOL],
     grid: rollGrid(STARTING_POOL),
     spinInCycle: 0,
     titheRound: 0,
-    dandelionStreak: 0,
+    totalSpins: 0,
+    alternatingTick: false,
+    destroyedThisRun: 0,
+    appearanceCounts: {},
     lastScore: 0,
     contributingCells: new Set(),
     phase: { kind: "idle" },
@@ -103,11 +111,18 @@ function reducer(state: GameState, action: Action): GameState {
     case "RESOLVE_SPIN": {
       if (state.phase.kind !== "spinning") return state;
       const finalGrid = rollGrid(state.pool);
-      const score = scoreGrid(finalGrid, { dandelionStreak: state.dandelionStreak });
+      const score = scoreGrid(finalGrid, {
+        totalSpins: state.totalSpins,
+        roundNumber: state.titheRound + 1,
+        appearanceCounts: state.appearanceCounts,
+        destroyedThisRun: state.destroyedThisRun,
+        alternatingTick: state.alternatingTick,
+      });
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
       const nextEmbers = state.embers + score.embersGained;
       const nextShards = state.bloomShards + score.bloomShardsGained;
+      const nextMoonTokens = state.moonTokens + score.moonTokensGained;
 
       const base: GameState = {
         ...state,
@@ -115,9 +130,12 @@ function reducer(state: GameState, action: Action): GameState {
         orbs: nextOrbs,
         embers: nextEmbers,
         bloomShards: nextShards,
+        moonTokens: nextMoonTokens,
         lastScore: score.orbs,
         contributingCells: score.contributingCells,
-        dandelionStreak: score.dandelionStreakNext,
+        appearanceCounts: score.appearanceCountsNext,
+        totalSpins: state.totalSpins + 1,
+        alternatingTick: !state.alternatingTick,
         spinInCycle: nextSpin,
         // Default: every spin opens a draft offer immediately.
         phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
@@ -233,6 +251,7 @@ function PlayPage() {
           embers={state.embers}
           orbs={state.orbs}
           shards={state.bloomShards}
+          moonTokens={state.moonTokens}
           titheRequired={titheRequired}
           spinInCycle={state.spinInCycle}
           titheRound={state.titheRound}
@@ -274,7 +293,11 @@ function PlayPage() {
               const def = SYMBOLS[id];
               return (
                 <div key={id} className="pool-grid-chip" title={def.description}>
-                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  {def.sprite ? (
+                    <img src={def.sprite} alt={def.name} className="pixelart" />
+                  ) : (
+                    <span className="pool-grid-emoji" aria-hidden>{def.emoji}</span>
+                  )}
                   <span className="pool-grid-count">×{count}</span>
                   <span className="pool-grid-name">{def.name}</span>
                 </div>
@@ -318,7 +341,11 @@ function PlayPage() {
                   className="draft-card"
                   onClick={() => dispatch({ type: "PICK_DRAFT", id })}
                 >
-                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  {def.sprite ? (
+                    <img src={def.sprite} alt={def.name} className="pixelart" />
+                  ) : (
+                    <span className="draft-emoji" aria-hidden>{def.emoji}</span>
+                  )}
                   <div className="draft-name">{def.name}</div>
                   <div className="draft-desc">{def.description}</div>
                 </button>
@@ -380,6 +407,7 @@ function Header(props: {
   embers: number;
   orbs: number;
   shards: number;
+  moonTokens: number;
   titheRequired: number;
   spinInCycle: number;
   titheRound: number;
@@ -391,6 +419,7 @@ function Header(props: {
         <Stat icon={<img src={flameAsset.url} alt="" className="pixelart hud-icon" />} value={props.embers} label="Embers" />
         <Stat icon={<img src={orbImg} alt="" className="pixelart hud-icon" />} value={props.orbs} label="Light Orbs" />
         <Stat icon={<span className="hud-shard">◆</span>} value={props.shards} label="Bloom" />
+        <Stat icon={<span className="hud-moon">☾</span>} value={props.moonTokens} label="Moon Tokens" />
       </div>
       <div className="hud-tithe">
         <span>Spin {Math.min(props.spinInCycle + 1, TITHE_INTERVAL)} / {TITHE_INTERVAL}</span>
@@ -428,13 +457,25 @@ function SlotFrame(props: {
           const isHot = props.contributing.has(i) && !props.spinning;
           return (
             <div key={i} className={`cell ${isHot ? "cell-hot" : ""}`}>
-              <img
-                key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
-                src={def.sprite}
-                alt={def.name}
-                className={`pixelart cell-sprite ${props.spinning ? "spinning" : "settled"}`}
-                style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
-              />
+              {def.sprite ? (
+                <img
+                  key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
+                  src={def.sprite}
+                  alt={def.name}
+                  className={`pixelart cell-sprite ${props.spinning ? "spinning" : "settled"}`}
+                  style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
+                />
+              ) : (
+                <span
+                  key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
+                  className={`cell-emoji ${props.spinning ? "spinning" : "settled"}`}
+                  style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
+                  aria-label={def.name}
+                  role="img"
+                >
+                  {def.emoji}
+                </span>
+              )}
             </div>
           );
         })}

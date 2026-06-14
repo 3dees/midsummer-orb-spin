@@ -526,3 +526,24 @@
   color: #ffe7a8;
 }
 .pool-grid-name { font-size: 10px; color: #cfc5a2; }
+
+/* Emoji fallbacks for symbols without pixel art ----------------- */
+.cell-emoji {
+  font-size: clamp(28px, 6vw, 44px);
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  user-select: none;
+}
+.cell-emoji.settled { animation: cell-drop 0.35s ease-out both; }
+.cell-emoji.spinning { animation: cell-spin 0.5s linear infinite; opacity: 0.55; }
+.pool-grid-emoji,
+.draft-emoji {
+  font-size: 36px;
+  line-height: 1;
+  display: inline-block;
+}
+.hud-moon {
+  color: hsl(220 80% 80%);
+  font-size: 18px;
+  text-shadow: 0 0 8px hsl(220 80% 70% / 0.6);
+}

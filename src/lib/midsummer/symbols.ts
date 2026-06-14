@@ -58,8 +58,13 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
   hedgehog: { id: "hedgehog", name: "Hedgehog", sprite: hedgehogImg, baseOrbs: 2, description: "+2 Light Orbs." },
 };
 
+// The starting pool is a MULTISET: duplicates increase a symbol's appearance
+// odds. rollGrid() samples this array with replacement, so two Fireflies and
+// two Ferns means early grids are mostly Fireflies and Ferns.
 export const STARTING_POOL: SymbolId[] = [
   "firefly",
+  "firefly",
+  "fern",
   "fern",
   "mushroom",
   "fox",

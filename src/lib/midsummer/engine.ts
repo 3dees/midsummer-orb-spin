@@ -103,12 +103,25 @@ export function scoreGrid(
   };
 }
 
-/** Pick three distinct draft offers from the candidate pool, excluding any already-owned. */
-export function pickDraft(
-  candidates: SymbolId[],
-  owned: SymbolId[],
-): SymbolId[] {
-  const available = candidates.filter((c) => !owned.includes(c));
-  const shuffled = [...available].sort(() => Math.random() - 0.5);
+/**
+ * Pick three distinct draft offers from the candidate pool.
+ *
+ * Owned symbols are intentionally NOT excluded — drafting a duplicate of a
+ * symbol you already own is the main way to bias your odds toward it.
+ *
+ * TODO v2: weight offers by rarity tiers, and also offer copies of symbols
+ * already in the player's pool (currently only DRAFT_POOL is sampled).
+ * TODO v2: Moon Tokens — let the player spend a currency to REMOVE a symbol
+ * from their pool, thinning it for better odds on keepers.
+ */
+export function pickDraft(candidates: SymbolId[]): SymbolId[] {
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, 3);
+}
+
+/** Collapse a multiset pool into [symbolId, count] pairs for display. */
+export function poolCounts(pool: SymbolId[]): Array<[SymbolId, number]> {
+  const counts = new Map<SymbolId, number>();
+  for (const id of pool) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return Array.from(counts.entries());
 }

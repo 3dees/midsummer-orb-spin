@@ -670,6 +670,34 @@ function SlotFrame(props: {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const hasLoggedCabinetLayoutRef = useRef(false);
 
+  const logCabinetLayout = useCallback(() => {
+    const frame = frameRef.current;
+    const cabinetImage = cabinetImageRef.current;
+    if (!frame || !cabinetImage || hasLoggedCabinetLayoutRef.current) return;
+    const cabinetRect = cabinetImage.getBoundingClientRect();
+    if (cabinetRect.width <= 0 || cabinetRect.height <= 0) return;
+    const computedFrameStyles = getComputedStyle(frame);
+    console.log("[SlotFrame] cabinet layout calibration", {
+      cabinetRendered: {
+        left: cabinetRect.left,
+        top: cabinetRect.top,
+        width: cabinetRect.width,
+        height: cabinetRect.height,
+      },
+      cabinetNatural: {
+        width: cabinetImage.naturalWidth,
+        height: cabinetImage.naturalHeight,
+      },
+      devicePixelRatio: window.devicePixelRatio || 1,
+      cssVariables: {
+        "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
+        "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
+        "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
+      },
+    });
+    hasLoggedCabinetLayoutRef.current = true;
+  }, []);
+
   useLayoutEffect(() => {
     const frame = frameRef.current;
     const cabinetImage = cabinetImageRef.current;
@@ -713,31 +741,7 @@ function SlotFrame(props: {
       frame.style.setProperty("--cell-px", `${cellPx}px`);
       frame.style.setProperty("--sprite-px", `${spritePx}px`);
       frame.style.setProperty("--gap-px", `${gapPx}px`);
-
-      if (!hasLoggedCabinetLayoutRef.current) {
-        const cabinetRect = cabinetImage.getBoundingClientRect();
-        const computedFrameStyles = getComputedStyle(frame);
-        console.log("[SlotFrame] cabinet layout calibration", {
-          cabinetRendered: {
-            left: cabinetRect.left,
-            top: cabinetRect.top,
-            width: cabinetRect.width,
-            height: cabinetRect.height,
-          },
-          cabinetNatural: {
-            width: cabinetImage.naturalWidth,
-            height: cabinetImage.naturalHeight,
-          },
-          devicePixelRatio: dpr,
-          scale,
-          cssVariables: {
-            "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
-            "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
-            "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
-          },
-        });
-        hasLoggedCabinetLayoutRef.current = true;
-      }
+      requestAnimationFrame(logCabinetLayout);
 
       if (import.meta.env.DEV && (totalW > backdropW + 0.5 || totalH > backdropH + 0.5)) {
         console.warn("[SlotFrame] grid exceeded panel backdrop", {
@@ -759,11 +763,18 @@ function SlotFrame(props: {
       ro.disconnect();
       window.removeEventListener("resize", recompute);
     };
-  }, []);
+  }, [logCabinetLayout]);
 
   return (
     <div className="slot-frame" ref={frameRef}>
-      <img ref={cabinetImageRef} src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
+      <img
+        ref={cabinetImageRef}
+        src={cabinetImg}
+        alt=""
+        className="cabinet-frame pixelart"
+        onLoad={() => requestAnimationFrame(logCabinetLayout)}
+        aria-hidden
+      />
       <div className="slot-panel-backdrop" aria-hidden />
       <div className="slot-panel" aria-hidden>
         {Array.from({ length: GRID_SIZE }).map((_, i) => (

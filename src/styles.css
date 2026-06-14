@@ -246,14 +246,19 @@
   --sprite-px: 32px;
   --gap-px: 2px;
 }
-.cabinet-frame {
+img.cabinet-frame {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  display: block;
+  mix-blend-mode: normal;
+  outline: none;
+  border: none;
+  box-shadow: none;
+  image-rendering: pixelated;
   pointer-events: none;
   user-select: none;
-  filter: drop-shadow(0 0 24px rgba(255,170,70,0.18));
 }
 
 .slot-panel-backdrop,

@@ -809,7 +809,7 @@ function SlotFrame(props: {
           <div key={i} className="panel-cell" />
         ))}
       </div>
-      {import.meta.env.DEV && (
+      {SHOW_GRID_DEBUG && import.meta.env.DEV && (
         <div
           className="slot-grid-dev-overlay"
           style={{

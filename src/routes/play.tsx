@@ -251,6 +251,7 @@ function PlayPage() {
           embers={state.embers}
           orbs={state.orbs}
           shards={state.bloomShards}
+          moonTokens={state.moonTokens}
           titheRequired={titheRequired}
           spinInCycle={state.spinInCycle}
           titheRound={state.titheRound}
@@ -398,6 +399,7 @@ function Header(props: {
   embers: number;
   orbs: number;
   shards: number;
+  moonTokens: number;
   titheRequired: number;
   spinInCycle: number;
   titheRound: number;
@@ -409,6 +411,7 @@ function Header(props: {
         <Stat icon={<img src={flameAsset.url} alt="" className="pixelart hud-icon" />} value={props.embers} label="Embers" />
         <Stat icon={<img src={orbImg} alt="" className="pixelart hud-icon" />} value={props.orbs} label="Light Orbs" />
         <Stat icon={<span className="hud-shard">◆</span>} value={props.shards} label="Bloom" />
+        <Stat icon={<span className="hud-moon">☾</span>} value={props.moonTokens} label="Moon Tokens" />
       </div>
       <div className="hud-tithe">
         <span>Spin {Math.min(props.spinInCycle + 1, TITHE_INTERVAL)} / {TITHE_INTERVAL}</span>
@@ -446,13 +449,25 @@ function SlotFrame(props: {
           const isHot = props.contributing.has(i) && !props.spinning;
           return (
             <div key={i} className={`cell ${isHot ? "cell-hot" : ""}`}>
-              <img
-                key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
-                src={def.sprite}
-                alt={def.name}
-                className={`pixelart cell-sprite ${props.spinning ? "spinning" : "settled"}`}
-                style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
-              />
+              {def.sprite ? (
+                <img
+                  key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
+                  src={def.sprite}
+                  alt={def.name}
+                  className={`pixelart cell-sprite ${props.spinning ? "spinning" : "settled"}`}
+                  style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
+                />
+              ) : (
+                <span
+                  key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
+                  className={`cell-emoji ${props.spinning ? "spinning" : "settled"}`}
+                  style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
+                  aria-label={def.name}
+                  role="img"
+                >
+                  {def.emoji}
+                </span>
+              )}
             </div>
           );
         })}

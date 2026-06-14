@@ -1,52 +1,35 @@
+# Grid fills from pool size
 
-# Convert to Slot Builder
+Make the grid feel like it grows with the player. Early on it's mostly empty wood; every drafted symbol literally adds another lit cell.
 
-Rework the spin/draft loop so the player's pool is the entire game — every spin samples from a weighted pool (duplicates = higher odds), and every spin offers a draft to grow that pool.
+## Rules
 
-## Changes to game logic (`src/lib/midsummer/engine.ts`, `symbols.ts`)
+- Filled cells = `pool.length`, capped at `GRID_SIZE` (20).
+- Each spin, pick `pool.length` random distinct cell indexes from the 20 and fill them; the rest render as empty (dark) cells.
+- Starting pool shrinks from 8 → **5 symbols**, biased toward Fireflies so the first plays feel cheap and gentle:
+  `[firefly, firefly, firefly, fern, mushroom]`
+  → opens with 5 filled cells out of 20.
+- After each draft pick, pool grows by 1 → one more cell lights up on the next spin. After ~15 drafts the grid is fully lit.
+- Skipping a draft does not grow the grid — the tension of "do I add this?" now also means "do I add another lit cell?".
 
-- `STARTING_POOL` becomes a multiset (array with duplicates), exactly:
-  ```
-  [firefly, firefly, fern, fern, mushroom, fox, lantern, dandelion]
-  ```
-  This is the literal `playerPool` — `rollGrid` already samples with replacement from it, so duplicates naturally bias the grid toward Fireflies/Ferns at the start.
-- Keep `rollGrid(pool)` unchanged (random with replacement). Add a tiny `poolCounts(pool)` helper for the HUD pool display so duplicates collapse into "Firefly ×2" chips instead of two identical icons.
-- `pickDraft(candidates, owned)`: change semantics — owned symbols are now ELIGIBLE to be offered again (drafting a second Fox doubles its odds). So just return 3 random distinct picks from the full `DRAFT_POOL` plus a "more of an existing symbol" slot. Simplest version: 3 random distinct symbols from `DRAFT_POOL` (no exclusion). Note in the code: TODO v2 — also offer duplicates of owned symbols and weight by rarity.
+## Scoring
 
-## Changes to game flow (`src/routes/play.tsx`)
+- Empty cells contribute 0 orbs.
+- Lantern adjacency still uses orthogonal neighbours, but only counts neighbours that are filled (an empty cell can't receive +1). Same for Mushroom set count (empties don't count). No other scoring changes.
 
-- After every spin resolves, automatically enter `phase: { kind: 'draft', offers }`, regardless of whether a tithe just happened.
-- Draft overlay gets a **Skip** button (always visible) in addition to the 3 cards. Picking a card or skipping returns to `phase: 'idle'` so the next Spin button press works.
-- `PICK_DRAFT` appends one copy of the chosen symbol to `playerPool` (no dedupe). This is the only way the pool grows.
-- Tithe still triggers on spin 8 of every cycle — it now runs **before** the draft for that spin:
-  - Pass tithe → show "Tithe paid +5 Embers" overlay → continue → then the post-spin draft for spin 8 appears as normal.
-  - Fail tithe → loss screen (no draft).
-- Remove the old `CONTINUE_FROM_TITHE_PASS` draft (it picked from `DRAFT_POOL` minus owned). Tithe pass now just grants embers and advances the round; symbol growth is fully handled by the per-spin draft.
-- HUD "Pool" strip: render unique symbols with a small count badge (e.g. `🦊 ×1`, `🌿 ×2`) so the player can read their build at a glance and feel duplicates accumulating.
+## UI
 
-## UX details
-
-- The Spin button is hidden / disabled while the draft overlay is open — pressing Spin always means "commit to the current pool, then choose what to add."
-- Skip button styled as `ghost-btn`, labeled "Skip — keep pool lean."
-- Draft offers reshuffle every spin (`pickDraft` runs in the reducer when entering the draft phase).
-- Add a one-line tooltip under the pool strip: "Your pool: every spin samples from these symbols. Duplicates appear more often."
-
-## What stays the same
-
-- All scoring (Lantern adjacency, Mushroom 3+, Clover self-double, Dandelion ember trickle).
-- Tithe schedule: 8 spins, requirements 20 / 35 / 50, +5 Embers per pass, 3-round win.
-- Visuals, sprites, layout, animations.
-
-## Out of scope for this pass
-
-- Moon Tokens / symbol removal (your point 6 — leave a TODO comment in `engine.ts`).
-- Weighted draft offers based on rarity tiers.
-- Offering duplicates of currently-owned symbols in the draft (TODO comment in `pickDraft`).
+- Hide the player-facing pool strip and the "Pool: N symbols" hint in `SpinBar` entirely. Per the Luck Be a Landlord reference, the player only sees what's on the grid and the 3 draft offers — never the full pool.
+- Empty cells render as a dim, slightly inset slot (no sprite) so the player can see the grid growing.
+- Keep all overlays, tithe flow, animations, embers/orbs HUD, and draft UI exactly as they are.
 
 ## Files touched
 
-- `src/lib/midsummer/symbols.ts` — `STARTING_POOL` becomes multiset.
-- `src/lib/midsummer/engine.ts` — drop owned-exclusion in `pickDraft`, add `poolCounts` helper, add TODOs.
-- `src/routes/play.tsx` — reducer changes (auto-draft after every spin, draft has Skip, tithe path no longer opens its own draft), HUD pool strip with count badges.
+- `src/lib/midsummer/symbols.ts` — `STARTING_POOL` becomes `[firefly, firefly, firefly, fern, mushroom]`.
+- `src/lib/midsummer/engine.ts` — `rollGrid(pool)` now returns `(SymbolId | null)[]` of length 20 with `pool.length` random filled indexes; `scoreGrid` treats nulls as inert.
+- `src/routes/play.tsx` — `GameState.grid` typed as `(SymbolId | null)[]`; `SlotFrame` renders empty cells for null; remove `pool-strip` and `pool-hint` from `SpinBar`; drop the unused `poolCounts` import.
+- `src/styles.css` — add `.cell-empty` styling (dim inset, no sprite).
 
-After the change I'll spin a few times in the preview to confirm: pool grows by one when a card is picked, the grid composition visibly shifts toward newly added symbols, Skip works, and the tithe still triggers correctly on spin 8.
+## Verification
+
+Open `/play`, confirm: opens with exactly 5 lit cells out of 20, picking a draft adds one lit cell next spin, skipping does not, full lighting after enough drafts, tithe still triggers on spin 8.

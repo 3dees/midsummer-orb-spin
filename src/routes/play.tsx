@@ -705,36 +705,21 @@ function SlotFrame(props: {
   useLayoutEffect(() => {
     const frame = frameRef.current;
     const cabinetImage = cabinetImageRef.current;
-    const grid = gridRef.current;
-    if (!frame || !cabinetImage || !grid) return;
+    if (!frame || !cabinetImage) return;
 
     const recompute = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const frameW = frame.clientWidth;
-      const frameH = frame.clientHeight;
-      if (frameW <= 0 || frameH <= 0) return;
-      const scale = Math.min(frameW / CABINET_SOURCE_W, frameH / CABINET_SOURCE_H);
-      const backdropW = snapNearestToDevicePx(PANEL_BACKDROP.width * scale, dpr);
-      const backdropH = snapNearestToDevicePx(PANEL_BACKDROP.height * scale, dpr);
-      const backdropLeft = snapNearestToDevicePx(PANEL_BACKDROP.left * scale, dpr);
-      const backdropTop = snapNearestToDevicePx(PANEL_BACKDROP.top * scale, dpr);
-
-      const gapPx = snapDownToDevicePx(PANEL_GRID.gap * scale, dpr);
-      const maxCellByBackdropW = Math.floor((backdropW * dpr - gapPx * dpr * 4) / 5);
-      const maxCellByBackdropH = Math.floor((backdropH * dpr - gapPx * dpr * 3) / 4);
-      const sourceCellDevicePx = Math.floor(PANEL_GRID.cell * scale * dpr);
-      const cellDevicePx = Math.max(
-        8,
-        Math.min(sourceCellDevicePx, maxCellByBackdropW, maxCellByBackdropH),
-      );
-      const cellPx = cellDevicePx / dpr;
-      const totalW = cellPx * 5 + gapPx * 4;
-      const totalH = cellPx * 4 + gapPx * 3;
-      const gridCenterX = (PANEL_GRID.left + PANEL_GRID_W / 2) * scale;
-      const gridCenterY = (PANEL_GRID.top + PANEL_GRID_H / 2) * scale;
-      const gridLeft = snapNearestToDevicePx(gridCenterX - totalW / 2, dpr);
-      const gridTop = snapNearestToDevicePx(gridCenterY - totalH / 2, dpr);
-      const spritePx = Math.max(8, Math.floor(cellDevicePx * 0.74)) / dpr;
+      const rect = cabinetImage.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const scale = rect.width / CABINET_SOURCE_W;
+      const backdropW = PANEL_BACKDROP.width * scale;
+      const backdropH = PANEL_BACKDROP.height * scale;
+      const backdropLeft = PANEL_BACKDROP.left * scale;
+      const backdropTop = PANEL_BACKDROP.top * scale;
+      const gridLeft = PANEL_GRID.left * scale;
+      const gridTop = PANEL_GRID.top * scale;
+      const cellPx = PANEL_GRID.cell * scale;
+      const gapPx = PANEL_GRID.gap * scale;
+      const spritePx = cellPx * 0.74;
 
       frame.style.setProperty("--panel-left-px", `${backdropLeft}px`);
       frame.style.setProperty("--panel-top-px", `${backdropTop}px`);
@@ -746,17 +731,6 @@ function SlotFrame(props: {
       frame.style.setProperty("--sprite-px", `${spritePx}px`);
       frame.style.setProperty("--gap-px", `${gapPx}px`);
       requestAnimationFrame(logCabinetLayout);
-
-      if (import.meta.env.DEV && (totalW > backdropW + 0.5 || totalH > backdropH + 0.5)) {
-        console.warn("[SlotFrame] grid exceeded panel backdrop", {
-          frameW,
-          frameH,
-          backdropW,
-          backdropH,
-          totalW,
-          totalH,
-        });
-      }
     };
 
     recompute();

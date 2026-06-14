@@ -753,12 +753,17 @@ function SlotFrame(props: {
   }, [logCabinetLayout]);
 
   return (
-    <div className="slot-frame" ref={frameRef}>
+    <div
+      className="slot-frame"
+      ref={frameRef}
+      style={{ position: "relative", lineHeight: 0, background: "transparent", overflow: "hidden" }}
+    >
       <img
         ref={cabinetImageRef}
         src={cabinetImg}
         alt=""
         className="cabinet-frame pixelart"
+        style={{ display: "block", width: "100%", height: "auto", border: "none", outline: "none", boxShadow: "none" }}
         onLoad={() => requestAnimationFrame(logCabinetLayout)}
         aria-hidden
       />
@@ -768,7 +773,36 @@ function SlotFrame(props: {
           <div key={i} className="panel-cell" />
         ))}
       </div>
-      {import.meta.env.DEV && <div className="slot-grid-dev-overlay" aria-hidden />}
+      {import.meta.env.DEV && (
+        <div
+          style={{
+            position: "absolute",
+            left: "var(--grid-left-px)",
+            top: "var(--grid-top-px)",
+            display: "grid",
+            gridTemplateColumns: `repeat(${PANEL_GRID.cols}, var(--cell-px))`,
+            gridTemplateRows: `repeat(${PANEL_GRID.rows}, var(--cell-px))`,
+            gap: "var(--gap-px)",
+            outline: "2px solid red",
+            pointerEvents: "none",
+            zIndex: 50,
+          }}
+          aria-hidden
+        >
+          {Array.from({ length: PANEL_GRID.cols * PANEL_GRID.rows }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: "var(--cell-px)",
+                height: "var(--cell-px)",
+                outline: "1px solid rgba(255, 0, 0, 0.6)",
+                boxSizing: "border-box",
+                aspectRatio: "1 / 1",
+              }}
+            />
+          ))}
+        </div>
+      )}
       <div className="slot-grid" ref={gridRef}>
         {props.grid.map((tile, i) => {
           if (tile == null) {

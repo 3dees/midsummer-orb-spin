@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 
 import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
@@ -10,16 +10,23 @@ import {
   DRAFT_POOL,
   STARTING_POOL,
   SYMBOLS,
+  SYNERGY_GROUPS,
+  COMMON_IDS,
+  UNCOMMON_IDS,
+  groupsForSymbol,
   type SymbolId,
+  type SynergyGroupId,
 } from "@/lib/midsummer/symbols";
 import {
   EMBERS_PER_TITHE,
   GRID_COLS,
-  GRID_ROWS,
   GRID_SIZE,
   START_EMBERS,
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
+  type PoolTile,
+  type SpinEvent,
+  makeTile,
   pickDraft,
   poolCounts,
   rollGrid,

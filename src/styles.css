@@ -246,7 +246,7 @@
   --sprite-px: 32px;
   --gap-px: 2px;
 }
-.cabinet-frame {
+img.cabinet-frame {
   position: absolute;
   inset: 0;
   width: 100%;

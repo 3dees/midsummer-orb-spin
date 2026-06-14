@@ -119,6 +119,8 @@ function reducer(state: GameState, action: Action): GameState {
         grid: rollGrid(state.pool),
         contributingCells: new Set(),
         lastScore: 0,
+        lastEvents: [],
+        lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
         phase: { kind: "spinning" },
       };
     }
@@ -132,6 +134,25 @@ function reducer(state: GameState, action: Action): GameState {
         destroyedThisRun: state.destroyedThisRun,
         alternatingTick: state.alternatingTick,
       });
+
+      // Age each tile that landed on the grid; transform Acorn → Oak Leaf
+      // after its 5th appearance (per-instance, not per id).
+      const events: SpinEvent[] = [...score.events];
+      const nextPool: PoolTile[] = state.pool.map((t) => {
+        const landed = finalGrid.some((c) => c && c.uid === t.uid);
+        if (!landed) return t;
+        const aged: PoolTile = { ...t, age: t.age + 1 };
+        if (aged.id === "acorn" && aged.age >= 5) {
+          const cellIdx = finalGrid.findIndex((c) => c && c.uid === t.uid);
+          events.push({ kind: "transform", cell: cellIdx, from: "acorn", to: "oak_leaf" });
+          return { ...makeTile("oak_leaf"), uid: t.uid };
+        }
+        return aged;
+      });
+      const displayedGrid: (PoolTile | null)[] = finalGrid.map((cell) =>
+        cell ? nextPool.find((t) => t.uid === cell.uid) ?? cell : null,
+      );
+
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
       const nextEmbers = state.embers + score.embersGained;
@@ -140,12 +161,19 @@ function reducer(state: GameState, action: Action): GameState {
 
       const base: GameState = {
         ...state,
-        grid: finalGrid,
+        pool: nextPool,
+        grid: displayedGrid,
         orbs: nextOrbs,
         embers: nextEmbers,
         bloomShards: nextShards,
         moonTokens: nextMoonTokens,
         lastScore: score.orbs,
+        lastRewards: {
+          embers: score.embersGained,
+          bloomShards: score.bloomShardsGained,
+          moonTokens: score.moonTokensGained,
+        },
+        lastEvents: events,
         contributingCells: score.contributingCells,
         appearanceCounts: score.appearanceCountsNext,
         totalSpins: state.totalSpins + 1,

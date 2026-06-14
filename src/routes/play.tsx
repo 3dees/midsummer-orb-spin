@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
@@ -640,10 +640,43 @@ function SlotFrame(props: {
   onChipClick: (g: SynergyGroupId) => void;
   acornCountdown: number;
 }) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    const grid = gridRef.current;
+    if (!frame || !grid) return;
+
+    const recompute = () => {
+      const dpr = window.devicePixelRatio || 1;
+      // Inner panel is ~54% of the cabinet width. Snap to whole device
+      // pixels so 5 cells fit exactly with no fractional row/column.
+      const innerWidth = frame.clientWidth * 0.54;
+      const cellDevicePx = Math.max(8, Math.floor((innerWidth * dpr) / 5));
+      const cellPx = cellDevicePx / dpr;
+      // Sprite design is 64x64 — snap displayed size to whole device pixels
+      // so nearest-neighbour upscale never lands on half-pixel boundaries.
+      const spriteDevicePx = Math.max(8, Math.floor(cellDevicePx * 0.78));
+      const spritePx = spriteDevicePx / dpr;
+      grid.style.setProperty("--cell-px", `${cellPx}px`);
+      grid.style.setProperty("--sprite-px", `${spritePx}px`);
+    };
+
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(frame);
+    window.addEventListener("resize", recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, []);
+
   return (
-    <div className="slot-frame">
+    <div className="slot-frame" ref={frameRef}>
       <img src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
-      <div className="slot-grid">
+      <div className="slot-grid" ref={gridRef}>
         {props.grid.map((tile, i) => {
           if (tile == null) {
             return (

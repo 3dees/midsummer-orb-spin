@@ -21,6 +21,7 @@ import {
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
   pickDraft,
+  poolCounts,
   rollGrid,
   scoreGrid,
 } from "@/lib/midsummer/engine";
@@ -40,7 +41,6 @@ export const Route = createFileRoute("/play")({
 type Phase =
   | { kind: "idle" }
   | { kind: "spinning" }
-  | { kind: "resolved" }
   | { kind: "tithe-passed"; round: number }
   | { kind: "tithe-failed"; round: number; orbs: number; required: number }
   | { kind: "draft"; offers: SymbolId[] }
@@ -80,7 +80,7 @@ function initialState(): GameState {
 type Action =
   | { type: "BEGIN_SPIN" }
   | { type: "RESOLVE_SPIN" }
-  | { type: "CONTINUE_FROM_TITHE_PASS" }
+  | { type: "ACK_TITHE_PASS" }
   | { type: "PICK_DRAFT"; id: SymbolId }
   | { type: "SKIP_DRAFT" }
   | { type: "RESTART" };
@@ -89,7 +89,7 @@ function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "BEGIN_SPIN": {
       if (state.embers <= 0) return state;
-      if (state.phase.kind !== "idle" && state.phase.kind !== "resolved") return state;
+      if (state.phase.kind !== "idle") return state;
       return {
         ...state,
         embers: state.embers - 1,
@@ -119,7 +119,8 @@ function reducer(state: GameState, action: Action): GameState {
         contributingCells: score.contributingCells,
         dandelionStreak: score.dandelionStreakNext,
         spinInCycle: nextSpin,
-        phase: { kind: "resolved" },
+        // Default: every spin opens a draft offer immediately.
+        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
       };
 
       // Tithe check on the 8th spin of a cycle.
@@ -147,16 +148,15 @@ function reducer(state: GameState, action: Action): GameState {
       }
       return base;
     }
-    case "CONTINUE_FROM_TITHE_PASS": {
-      // Reset cycle, pay reward, open the draft.
-      const offers = pickDraft(DRAFT_POOL, state.pool);
+    case "ACK_TITHE_PASS": {
+      // Reset cycle, pay ember reward, then surface this spin's draft offer.
       return {
         ...state,
         orbs: 0,
         embers: state.embers + EMBERS_PER_TITHE,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
-        phase: offers.length > 0 ? { kind: "draft", offers } : { kind: "idle" },
+        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
       };
     }
     case "PICK_DRAFT": {
@@ -193,20 +193,18 @@ function PlayPage() {
 
   // Show floating "+N orbs" when a spin resolves.
   useEffect(() => {
-    if (state.phase.kind === "resolved" && state.lastScore > 0) {
+    if (state.lastScore > 0 && (state.phase.kind === "draft" || state.phase.kind === "tithe-passed")) {
       setFloatScore({ value: state.lastScore, key: Date.now() });
       const t = setTimeout(() => setFloatScore(null), 1400);
       return () => clearTimeout(t);
     }
-  }, [state.phase, state.lastScore]);
+  }, [state.phase.kind, state.lastScore]);
 
   const titheRequired = TITHE_REQUIREMENTS[state.titheRound] ?? 0;
   const spinsLeft = Math.max(0, TITHE_INTERVAL - state.spinInCycle);
   const titheWarning = state.titheRound < TITHE_REQUIREMENTS.length && spinsLeft <= 2 && state.phase.kind !== "spinning";
 
-  const canSpin =
-    state.embers > 0 &&
-    (state.phase.kind === "idle" || state.phase.kind === "resolved");
+  const canSpin = state.embers > 0 && state.phase.kind === "idle";
 
   const onSpin = useCallback(() => {
     dispatch({ type: "BEGIN_SPIN" });
@@ -264,17 +262,21 @@ function PlayPage() {
           </p>
           <button
             className="primary-btn"
-            onClick={() => dispatch({ type: "CONTINUE_FROM_TITHE_PASS" })}
+            onClick={() => dispatch({ type: "ACK_TITHE_PASS" })}
           >
-            Choose a new symbol
+            Continue
           </button>
         </Overlay>
       )}
 
       {state.phase.kind === "draft" && (
         <Overlay>
-          <h2 className="overlay-title">Draft a symbol</h2>
-          <p className="overlay-sub">Add one to your spin pool, permanently.</p>
+          <h2 className="overlay-title">Add a symbol?</h2>
+          <p className="overlay-sub">
+            Pick one to add to your pool — it will appear in future spins.
+            <br />
+            Or skip to keep your pool lean.
+          </p>
           <div className="draft-grid">
             {state.phase.offers.map((id) => {
               const def = SYMBOLS[id];
@@ -291,11 +293,9 @@ function PlayPage() {
               );
             })}
           </div>
-          {state.phase.offers.length === 0 && (
-            <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
-              Continue
-            </button>
-          )}
+          <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
+            Skip — keep pool lean
+          </button>
         </Overlay>
       )}
 
@@ -416,19 +416,18 @@ function SpinBar(props: {
   floatScore: { value: number; key: number } | null;
   pool: SymbolId[];
 }) {
+  const counts = poolCounts(props.pool);
   return (
     <div className="spin-bar">
-      <div className="pool-strip" aria-label="Your symbol pool">
-        {props.pool.map((id) => (
-          <img
-            key={id}
-            src={SYMBOLS[id].sprite}
-            alt={SYMBOLS[id].name}
-            title={`${SYMBOLS[id].name}: ${SYMBOLS[id].description}`}
-            className="pixelart pool-icon"
-          />
+      <div className="pool-strip" aria-label="Your symbol pool" title="Your pool: every spin samples from these symbols. Duplicates appear more often.">
+        {counts.map(([id, n]) => (
+          <div key={id} className="pool-chip" title={`${SYMBOLS[id].name} ×${n}: ${SYMBOLS[id].description}`}>
+            <img src={SYMBOLS[id].sprite} alt={SYMBOLS[id].name} className="pixelart pool-icon" />
+            {n > 1 && <span className="pool-count">×{n}</span>}
+          </div>
         ))}
       </div>
+      <div className="pool-hint">Pool: {props.pool.length} symbols · duplicates spin more often</div>
       <div className="spin-button-wrap">
         {props.floatScore && (
           <div key={props.floatScore.key} className="float-score">

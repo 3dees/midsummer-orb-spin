@@ -474,6 +474,34 @@ function PlayPage() {
         </Overlay>
       )}
 
+      {state.phase.kind === "green-man-upgrade" && (
+        <Overlay>
+          <h2 className="overlay-title">The Green Man stirs</h2>
+          <p className="overlay-sub">
+            Roots reach into your bag and lift {state.phase.from.length} common
+            tile{state.phase.from.length === 1 ? "" : "s"} into stronger forms.
+          </p>
+          <div className="upgrade-list">
+            {state.phase.from.map((from, i) => {
+              const to = state.phase.kind === "green-man-upgrade" ? state.phase.to[i] : from;
+              const f = SYMBOLS[from], t = SYMBOLS[to];
+              return (
+                <div key={i} className="upgrade-row">
+                  <span className="upgrade-emoji">{f.emoji}</span>
+                  <span className="upgrade-name">{f.name}</span>
+                  <span className="upgrade-arrow">→</span>
+                  <span className="upgrade-emoji">{t.emoji}</span>
+                  <span className="upgrade-name">{t.name}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button className="primary-btn" onClick={() => dispatch({ type: "ACK_GREEN_MAN" })}>
+            Continue
+          </button>
+        </Overlay>
+      )}
+
       {state.phase.kind === "draft" && (
         <Overlay>
           <h2 className="overlay-title">Add a symbol?</h2>
@@ -485,6 +513,7 @@ function PlayPage() {
           <div className="draft-grid">
             {state.phase.offers.map((id) => {
               const def = SYMBOLS[id];
+              const groups = groupsForSymbol(id);
               return (
                 <button
                   key={id}
@@ -498,6 +527,13 @@ function PlayPage() {
                   )}
                   <div className="draft-name">{def.name}</div>
                   <div className="draft-desc">{def.description}</div>
+                  {groups.length > 0 && (
+                    <div className="draft-groups">
+                      {groups.map((g) => (
+                        <span key={g} className="group-chip-mini">{SYNERGY_GROUPS[g].name}</span>
+                      ))}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -537,6 +573,7 @@ function PlayPage() {
         state.phase.kind !== "win" &&
         state.phase.kind !== "tithe-passed" &&
         state.phase.kind !== "draft" &&
+        state.phase.kind !== "green-man-upgrade" &&
         state.embers === 0 &&
         state.orbs < titheRequired && (
           <Overlay>
@@ -592,21 +629,41 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 }
 
 function SlotFrame(props: {
-  grid: (SymbolId | null)[];
+  grid: (PoolTile | null)[];
   contributing: Set<number>;
   spinning: boolean;
+  highlightedMembers: SymbolId[];
+  highlightGroup: SynergyGroupId | null;
+  openTooltipCell: number | null;
+  onCellClick: (idx: number, hasSymbol: boolean) => void;
+  onChipClick: (g: SynergyGroupId) => void;
+  acornCountdown: number;
 }) {
   return (
     <div className="slot-frame">
       <div className="slot-grid">
-        {props.grid.map((id, i) => {
-          if (id == null) {
-            return <div key={i} className="cell cell-empty" aria-hidden />;
+        {props.grid.map((tile, i) => {
+          if (tile == null) {
+            return (
+              <div
+                key={i}
+                className="cell cell-empty"
+                onClick={(e) => { e.stopPropagation(); props.onCellClick(i, false); }}
+                aria-hidden
+              />
+            );
           }
+          const id = tile.id;
           const def = SYMBOLS[id];
           const isHot = props.contributing.has(i) && !props.spinning;
+          const isHi = props.highlightedMembers.includes(id);
+          const isOpen = props.openTooltipCell === i && !props.spinning;
           return (
-            <div key={i} className={`cell ${isHot ? "cell-hot" : ""}`}>
+            <div
+              key={i}
+              className={`cell ${isHot ? "cell-hot" : ""} ${isHi ? "cell-grouped" : ""}`}
+              onClick={(e) => { e.stopPropagation(); props.onCellClick(i, true); }}
+            >
               {def.sprite ? (
                 <img
                   key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
@@ -626,6 +683,20 @@ function SlotFrame(props: {
                   {def.emoji}
                 </span>
               )}
+              {isOpen && (
+                <SymbolTooltip
+                  id={id}
+                  onChipClick={props.onChipClick}
+                  highlightGroup={props.highlightGroup}
+                  extra={
+                    id === "acorn"
+                      ? props.acornCountdown === 0
+                        ? "Transforms next spin"
+                        : `Transforms in ${props.acornCountdown} more spin(s)`
+                      : null
+                  }
+                />
+              )}
             </div>
           );
         })}
@@ -640,7 +711,7 @@ function SpinBar(props: {
   onSpin: () => void;
   spinning: boolean;
   floatScore: { value: number; key: number } | null;
-  pool: SymbolId[];
+  pool: PoolTile[];
   onViewPool: () => void;
 }) {
   return (

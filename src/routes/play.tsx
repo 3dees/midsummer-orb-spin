@@ -642,6 +642,7 @@ function SlotFrame(props: {
 }) {
   return (
     <div className="slot-frame">
+      <img src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
       <div className="slot-grid">
         {props.grid.map((tile, i) => {
           if (tile == null) {

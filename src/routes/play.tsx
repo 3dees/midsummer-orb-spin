@@ -765,6 +765,15 @@ function SlotFrame(props: {
     };
   }, [logCabinetLayout]);
 
+  useEffect(() => {
+    const raf = requestAnimationFrame(logCabinetLayout);
+    const timeout = window.setTimeout(logCabinetLayout, 250);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+    };
+  }, [logCabinetLayout]);
+
   return (
     <div className="slot-frame" ref={frameRef}>
       <img

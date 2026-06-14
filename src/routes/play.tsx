@@ -631,11 +631,12 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 
 const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
+// Measured directly from cabinet.png. Grid box: left 238, top 436, 541 x 595.
 const PANEL_GRID = {
-  left: 200,
-  top: 370,
-  cell: 122,
-  gap: 6,
+  left: 238,
+  top: 436,
+  cellW: 108.2,
+  cellH: 148.75,
   cols: 5,
   rows: 4,
 };
@@ -683,8 +684,9 @@ function SlotFrame(props: {
       cssVariables: {
         "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
         "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
-        "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
-        "--gap-px": computedFrameStyles.getPropertyValue("--gap-px").trim(),
+        "--cell-w-px": computedFrameStyles.getPropertyValue("--cell-w-px").trim(),
+        "--cell-h-px": computedFrameStyles.getPropertyValue("--cell-h-px").trim(),
+        "--sprite-px": computedFrameStyles.getPropertyValue("--sprite-px").trim(),
       },
     };
     console.log(`[SlotFrame] cabinet layout calibration ${JSON.stringify(payload)}`);
@@ -710,9 +712,9 @@ function SlotFrame(props: {
       const backdropTop = PANEL_BACKDROP.top * scale;
       const gridLeft = PANEL_GRID.left * scale;
       const gridTop = PANEL_GRID.top * scale;
-      const cellPx = PANEL_GRID.cell * scale;
-      const gapPx = PANEL_GRID.gap * scale;
-      const spritePx = cellPx * 0.74;
+      const cellW = PANEL_GRID.cellW * scale;
+      const cellH = PANEL_GRID.cellH * scale;
+      const spritePx = Math.min(cellW, cellH) * 0.74;
 
       frame.style.setProperty("--panel-left-px", `${backdropLeft}px`);
       frame.style.setProperty("--panel-top-px", `${backdropTop}px`);
@@ -720,9 +722,9 @@ function SlotFrame(props: {
       frame.style.setProperty("--panel-height-px", `${backdropH}px`);
       frame.style.setProperty("--grid-left-px", `${gridLeft}px`);
       frame.style.setProperty("--grid-top-px", `${gridTop}px`);
-      frame.style.setProperty("--cell-px", `${cellPx}px`);
+      frame.style.setProperty("--cell-w-px", `${cellW}px`);
+      frame.style.setProperty("--cell-h-px", `${cellH}px`);
       frame.style.setProperty("--sprite-px", `${spritePx}px`);
-      frame.style.setProperty("--gap-px", `${gapPx}px`);
       requestAnimationFrame(logCabinetLayout);
     };
 
@@ -768,14 +770,15 @@ function SlotFrame(props: {
       </div>
       {import.meta.env.DEV && (
         <div
+          className="slot-grid-dev-overlay"
           style={{
             position: "absolute",
             left: "var(--grid-left-px)",
             top: "var(--grid-top-px)",
             display: "grid",
-            gridTemplateColumns: `repeat(${PANEL_GRID.cols}, var(--cell-px))`,
-            gridTemplateRows: `repeat(${PANEL_GRID.rows}, var(--cell-px))`,
-            gap: "var(--gap-px)",
+            gridTemplateColumns: `repeat(${PANEL_GRID.cols}, var(--cell-w-px))`,
+            gridTemplateRows: `repeat(${PANEL_GRID.rows}, var(--cell-h-px))`,
+            gap: 0,
             outline: "2px solid red",
             pointerEvents: "none",
             zIndex: 50,
@@ -786,11 +789,10 @@ function SlotFrame(props: {
             <div
               key={i}
               style={{
-                width: "var(--cell-px)",
-                height: "var(--cell-px)",
+                width: "var(--cell-w-px)",
+                height: "var(--cell-h-px)",
                 outline: "1px solid rgba(255, 0, 0, 0.6)",
                 boxSizing: "border-box",
-                aspectRatio: "1 / 1",
               }}
             />
           ))}

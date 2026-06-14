@@ -51,6 +51,7 @@ type Phase =
   | { kind: "tithe-passed"; round: number }
   | { kind: "tithe-failed"; round: number; orbs: number; required: number }
   | { kind: "draft"; offers: SymbolId[] }
+  | { kind: "green-man-upgrade"; from: SymbolId[]; to: SymbolId[] }
   | { kind: "win" }
   | { kind: "loss" };
 
@@ -59,8 +60,8 @@ interface GameState {
   orbs: number; // banked towards tithe
   bloomShards: number;
   moonTokens: number;
-  pool: SymbolId[];
-  grid: (SymbolId | null)[];
+  pool: PoolTile[];
+  grid: (PoolTile | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
   titheRound: number; // 0..TITHE_REQUIREMENTS.length
   totalSpins: number;
@@ -68,18 +69,21 @@ interface GameState {
   destroyedThisRun: number;
   appearanceCounts: Record<string, number>;
   lastScore: number;
+  lastRewards: { embers: number; bloomShards: number; moonTokens: number };
+  lastEvents: SpinEvent[];
   contributingCells: Set<number>;
   phase: Phase;
 }
 
 function initialState(): GameState {
+  const pool = STARTING_POOL.map((id) => makeTile(id));
   return {
     embers: START_EMBERS,
     orbs: 0,
     bloomShards: 0,
     moonTokens: 0,
-    pool: [...STARTING_POOL],
-    grid: rollGrid(STARTING_POOL),
+    pool,
+    grid: rollGrid(pool),
     spinInCycle: 0,
     titheRound: 0,
     totalSpins: 0,
@@ -87,6 +91,8 @@ function initialState(): GameState {
     destroyedThisRun: 0,
     appearanceCounts: {},
     lastScore: 0,
+    lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
+    lastEvents: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
   };
@@ -98,6 +104,7 @@ type Action =
   | { type: "ACK_TITHE_PASS" }
   | { type: "PICK_DRAFT"; id: SymbolId }
   | { type: "SKIP_DRAFT" }
+  | { type: "ACK_GREEN_MAN" }
   | { type: "RESTART" };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -186,18 +193,42 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "PICK_DRAFT": {
       if (state.phase.kind !== "draft") return state;
-      // Add the new symbol instance to the pool permanently AND immediately
-      // re-roll the grid so the player can see it placed before their next
-      // spin. Future versions will let the player spend tokens here to
-      // remove symbols from their pool before committing the spin.
-      const nextPool = [...state.pool, action.id];
+      const added = makeTile(action.id);
+      const nextPool: PoolTile[] = [...state.pool, added];
+
+      // Green Man's `transformCommon`: pick up to 3 Common tiles in the pool
+      // and replace them with random Uncommons. Fires on draft pick only.
+      let upgradePhase: Phase | null = null;
+      if (action.id === "green_man") {
+        const commonIdxs = nextPool
+          .map((t, idx) => ({ idx, id: t.id }))
+          .filter((p) => COMMON_IDS.includes(p.id))
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        if (commonIdxs.length > 0) {
+          const fromIds: SymbolId[] = [];
+          const toIds: SymbolId[] = [];
+          for (const { idx } of commonIdxs) {
+            const newId = UNCOMMON_IDS[Math.floor(Math.random() * UNCOMMON_IDS.length)];
+            fromIds.push(nextPool[idx].id);
+            toIds.push(newId);
+            nextPool[idx] = { ...makeTile(newId), uid: nextPool[idx].uid };
+          }
+          upgradePhase = { kind: "green-man-upgrade", from: fromIds, to: toIds };
+        }
+      }
+
       return {
         ...state,
         pool: nextPool,
         grid: rollGrid(nextPool),
         contributingCells: new Set(),
-        phase: { kind: "idle" },
+        phase: upgradePhase ?? { kind: "idle" },
       };
+    }
+    case "ACK_GREEN_MAN": {
+      if (state.phase.kind !== "green-man-upgrade") return state;
+      return { ...state, phase: { kind: "idle" } };
     }
     case "SKIP_DRAFT": {
       if (state.phase.kind !== "draft") return state;

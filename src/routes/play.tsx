@@ -5,6 +5,7 @@ import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
 import crownAsset from "@/assets/sprites/crown.png.asset.json";
 import orbImg from "@/assets/sprites/orb.png";
+import cabinetImg from "@/assets/cabinet.png";
 
 import {
   DRAFT_POOL,
@@ -641,6 +642,7 @@ function SlotFrame(props: {
 }) {
   return (
     <div className="slot-frame">
+      <img src={cabinetImg} alt="" className="cabinet-frame pixelart" aria-hidden />
       <div className="slot-grid">
         {props.grid.map((tile, i) => {
           if (tile == null) {

@@ -632,16 +632,16 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
 const PANEL_GRID = {
-  left: 239,
-  top: 507,
-  cell: 106,
+  left: 212,
+  top: 395,
+  cell: 115,
   gap: 5,
 };
 const PANEL_BACKDROP = {
-  left: 239,
-  top: 421,
-  width: 550,
-  height: 608,
+  left: 210,
+  top: 395,
+  width: 600,
+  height: 475,
 };
 const PANEL_GRID_W = PANEL_GRID.cell * 5 + PANEL_GRID.gap * 4;
 const PANEL_GRID_H = PANEL_GRID.cell * 4 + PANEL_GRID.gap * 3;
@@ -791,6 +791,7 @@ function SlotFrame(props: {
           <div key={i} className="panel-cell" />
         ))}
       </div>
+      {import.meta.env.DEV && <div className="slot-grid-dev-overlay" aria-hidden />}
       <div className="slot-grid" ref={gridRef}>
         {props.grid.map((tile, i) => {
           if (tile == null) {

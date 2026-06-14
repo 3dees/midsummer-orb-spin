@@ -899,6 +899,24 @@ function SlotFrame(props: {
           );
         })}
       </div>
+      <div
+        className="tithe-meter-slot"
+        style={{
+          position: "absolute",
+          left: "var(--tithe-left-px)",
+          top: "var(--tithe-top-px)",
+          width: "var(--tithe-w-px)",
+          height: "var(--tithe-h-px)",
+          zIndex: 5,
+        }}
+      >
+        <TitheMeter
+          round={props.titheRound}
+          orbs={props.orbs}
+          requirement={props.titheRequirement}
+          spinsTaken={props.spinsTaken}
+        />
+      </div>
     </div>
   );
 }

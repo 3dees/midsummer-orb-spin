@@ -388,6 +388,10 @@ function PlayPage() {
           }}
           onChipClick={onTooltipChip}
           acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
+          titheRound={state.titheRound + 1}
+          orbs={state.orbs}
+          titheRequirement={titheRequired}
+          spinsTaken={state.spinInCycle}
         />
 
         <SpinLog

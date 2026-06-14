@@ -632,16 +632,16 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
 const PANEL_GRID = {
-  left: 232,
-  top: 501,
-  cell: 108,
+  left: 239,
+  top: 507,
+  cell: 106,
   gap: 5,
 };
 const PANEL_BACKDROP = {
-  left: 222,
-  top: 398,
-  width: 580,
-  height: 650,
+  left: 239,
+  top: 421,
+  width: 550,
+  height: 608,
 };
 const PANEL_GRID_W = PANEL_GRID.cell * 5 + PANEL_GRID.gap * 4;
 const PANEL_GRID_H = PANEL_GRID.cell * 4 + PANEL_GRID.gap * 3;

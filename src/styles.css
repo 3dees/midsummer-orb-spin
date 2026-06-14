@@ -236,12 +236,12 @@
   aspect-ratio: 1024 / 1536;
   background: transparent;
   border: none;
-  --panel-left-px: 22%;
-  --panel-top-px: 26%;
-  --panel-width-px: 57%;
-  --panel-height-px: 42%;
-  --grid-left-px: 23%;
-  --grid-top-px: 32.5%;
+  --panel-left-px: 23.34%;
+  --panel-top-px: 27.41%;
+  --panel-width-px: 53.71%;
+  --panel-height-px: 39.58%;
+  --grid-left-px: 23.34%;
+  --grid-top-px: 33.01%;
   --cell-px: 42px;
   --sprite-px: 32px;
   --gap-px: 2px;

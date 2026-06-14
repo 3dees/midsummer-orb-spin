@@ -482,3 +482,47 @@
 .draft-card img { width: 60px; height: 60px; }
 .draft-name { font-weight: 700; color: #ffe7a8; font-size: 14px; }
 .draft-desc { font-size: 11px; color: #cfc5a2; line-height: 1.3; }
+
+.view-pool-btn {
+  align-self: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,200,120,0.35);
+  color: #cfc5a2;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.view-pool-btn:hover { color: #ffe7a8; border-color: rgba(255,200,120,0.7); }
+
+.pool-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+.pool-grid-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,200,120,0.2);
+}
+.pool-grid-chip img { width: 40px; height: 40px; }
+.pool-grid-count {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffe7a8;
+}
+.pool-grid-name { font-size: 10px; color: #cfc5a2; }

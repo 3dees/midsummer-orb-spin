@@ -450,9 +450,13 @@ function SpinBar(props: {
   spinning: boolean;
   floatScore: { value: number; key: number } | null;
   pool: SymbolId[];
+  onViewPool: () => void;
 }) {
   return (
     <div className="spin-bar">
+      <button className="view-pool-btn" onClick={props.onViewPool}>
+        View pool ({props.pool.length})
+      </button>
       <div className="spin-button-wrap">
         {props.floatScore && (
           <div key={props.floatScore.key} className="float-score">

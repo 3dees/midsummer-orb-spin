@@ -51,11 +51,15 @@ interface GameState {
   embers: number;
   orbs: number; // banked towards tithe
   bloomShards: number;
+  moonTokens: number;
   pool: SymbolId[];
   grid: (SymbolId | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
   titheRound: number; // 0..TITHE_REQUIREMENTS.length
-  dandelionStreak: number;
+  totalSpins: number;
+  alternatingTick: boolean;
+  destroyedThisRun: number;
+  appearanceCounts: Record<string, number>;
   lastScore: number;
   contributingCells: Set<number>;
   phase: Phase;
@@ -66,11 +70,15 @@ function initialState(): GameState {
     embers: START_EMBERS,
     orbs: 0,
     bloomShards: 0,
+    moonTokens: 0,
     pool: [...STARTING_POOL],
     grid: rollGrid(STARTING_POOL),
     spinInCycle: 0,
     titheRound: 0,
-    dandelionStreak: 0,
+    totalSpins: 0,
+    alternatingTick: false,
+    destroyedThisRun: 0,
+    appearanceCounts: {},
     lastScore: 0,
     contributingCells: new Set(),
     phase: { kind: "idle" },
@@ -103,11 +111,18 @@ function reducer(state: GameState, action: Action): GameState {
     case "RESOLVE_SPIN": {
       if (state.phase.kind !== "spinning") return state;
       const finalGrid = rollGrid(state.pool);
-      const score = scoreGrid(finalGrid, { dandelionStreak: state.dandelionStreak });
+      const score = scoreGrid(finalGrid, {
+        totalSpins: state.totalSpins,
+        roundNumber: state.titheRound + 1,
+        appearanceCounts: state.appearanceCounts,
+        destroyedThisRun: state.destroyedThisRun,
+        alternatingTick: state.alternatingTick,
+      });
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
       const nextEmbers = state.embers + score.embersGained;
       const nextShards = state.bloomShards + score.bloomShardsGained;
+      const nextMoonTokens = state.moonTokens + score.moonTokensGained;
 
       const base: GameState = {
         ...state,
@@ -115,9 +130,12 @@ function reducer(state: GameState, action: Action): GameState {
         orbs: nextOrbs,
         embers: nextEmbers,
         bloomShards: nextShards,
+        moonTokens: nextMoonTokens,
         lastScore: score.orbs,
         contributingCells: score.contributingCells,
-        dandelionStreak: score.dandelionStreakNext,
+        appearanceCounts: score.appearanceCountsNext,
+        totalSpins: state.totalSpins + 1,
+        alternatingTick: !state.alternatingTick,
         spinInCycle: nextSpin,
         // Default: every spin opens a draft offer immediately.
         phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },

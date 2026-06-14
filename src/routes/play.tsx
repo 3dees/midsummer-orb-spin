@@ -748,3 +748,143 @@ function Overlay(props: { children: React.ReactNode }) {
     </div>
   );
 }
+
+// -------- Symbol tooltip --------------------------------------------------
+
+function SymbolTooltip(props: {
+  id: SymbolId;
+  onChipClick: (g: SynergyGroupId) => void;
+  highlightGroup: SynergyGroupId | null;
+  extra: string | null;
+}) {
+  const def = SYMBOLS[props.id];
+  const groups = groupsForSymbol(props.id);
+  return (
+    <div className="symbol-tip" onClick={(e) => e.stopPropagation()}>
+      <div className="symbol-tip-head">
+        <span className="symbol-tip-emoji">{def.emoji}</span>
+        <div className="symbol-tip-headtext">
+          <div className="symbol-tip-name">{def.name}</div>
+          <div className={`symbol-tip-rarity rarity-${def.rarity}`}>
+            {def.rarity.replace("_", " ")}
+          </div>
+        </div>
+      </div>
+      <div className="symbol-tip-base">Base: +{def.baseValue} ◐</div>
+      <div className="symbol-tip-desc">{def.description}</div>
+      {props.extra && <div className="symbol-tip-extra">⏳ {props.extra}</div>}
+      {groups.length > 0 && (
+        <div className="symbol-tip-groups">
+          {groups.map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`group-chip ${props.highlightGroup === g ? "active" : ""}`}
+              onClick={(e) => { e.stopPropagation(); props.onChipClick(g); }}
+            >
+              {SYNERGY_GROUPS[g].name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------- Spin breakdown panel --------------------------------------------
+
+function SpinLog(props: {
+  events: SpinEvent[];
+  orbs: number;
+  rewards: { embers: number; bloomShards: number; moonTokens: number };
+  totalSpins: number;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { id: SymbolId; cell: number; entries: SpinEvent[]; subtotal: number }>();
+    for (const ev of props.events) {
+      const id = ev.kind === "transform" ? ev.from : ev.id;
+      const key = `${ev.cell}-${id}`;
+      const cur = map.get(key) ?? { id, cell: ev.cell, entries: [], subtotal: 0 };
+      cur.entries.push(ev);
+      if (ev.kind === "base") cur.subtotal += ev.orbs;
+      else if (ev.kind === "synergy" && ev.orbsDelta) cur.subtotal += ev.orbsDelta;
+      map.set(key, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal);
+  }, [props.events]);
+
+  return (
+    <section className={`spin-log ${open ? "" : "collapsed"}`}>
+      <button type="button" className="spin-log-head" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
+        <span className="spin-log-title">
+          {props.totalSpins === 0 ? "Spin to begin — synergies will appear here" : `Last spin: +${props.orbs} ◐`}
+        </span>
+        <span className="spin-log-rewards">
+          {props.rewards.bloomShards > 0 && <span>+{props.rewards.bloomShards} ◆</span>}
+          {props.rewards.moonTokens > 0 && <span>+{props.rewards.moonTokens} ☾</span>}
+          {props.rewards.embers > 0 && <span>+{props.rewards.embers} 🔥</span>}
+        </span>
+        <span className="spin-log-toggle">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && groups.length > 0 && (
+        <div className="spin-log-body">
+          {groups.map((g) => {
+            const def = SYMBOLS[g.id];
+            return (
+              <div key={`${g.cell}-${g.id}`} className="spin-log-group">
+                <div className="spin-log-group-head">
+                  <span className="spin-log-group-emoji">{def.emoji}</span>
+                  <span className="spin-log-group-name">{def.name}</span>
+                  <span className="spin-log-group-sub">+{g.subtotal} ◐</span>
+                </div>
+                <ul className="spin-log-entries">
+                  {g.entries.map((ev, idx) => (
+                    <li key={idx} className="spin-log-entry">
+                      {ev.kind === "base" && (
+                        <>
+                          <span className="ev-tag tag-base">base</span>
+                          <span className="ev-text">+{ev.orbs} ◐</span>
+                        </>
+                      )}
+                      {ev.kind === "synergy" && (
+                        <>
+                          <span className={`ev-tag ${ev.greenManBoost ? "tag-green" : "tag-syn"}`}>
+                            {ev.greenManBoost ? "Green Man" : ev.synergyType}
+                          </span>
+                          <span className="ev-text">
+                            {ev.description}
+                            {ev.orbsDelta != null && <b> · +{ev.orbsDelta} ◐</b>}
+                            {ev.multiplier != null && <b> · ×{ev.multiplier}</b>}
+                            {ev.rewardKind && (
+                              <b>
+                                {" · +"}{ev.rewardAmount}{" "}
+                                {ev.rewardKind === "bloom_shard" ? "◆"
+                                  : ev.rewardKind === "moon_token" ? "☾"
+                                  : ev.rewardKind === "embers" ? "🔥"
+                                  : "◐"}
+                              </b>
+                            )}
+                          </span>
+                        </>
+                      )}
+                      {ev.kind === "transform" && (
+                        <>
+                          <span className="ev-tag tag-transform">transform</span>
+                          <span className="ev-text">
+                            {SYMBOLS[ev.from].name} → {SYMBOLS[ev.to].name}
+                          </span>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

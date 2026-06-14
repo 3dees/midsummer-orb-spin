@@ -238,15 +238,14 @@
   background: transparent;
   overflow: hidden;
   border: none;
-  --panel-left-px: 20.51%;
-  --panel-top-px: 25.72%;
-  --panel-width-px: 58.59%;
-  --panel-height-px: 30.92%;
   --grid-left-px: 23.24219%;
   --grid-top-px: 28.38542%;
-  --cell-w-px: 55px;
-  --cell-h-px: 75.5px;
+  --cell-px: 55px;
   --sprite-px: 40.7px;
+  --tithe-left-px: 23.24%;
+  --tithe-top-px: 56.58%;
+  --tithe-w-px: 52.83%;
+  --tithe-h-px: 10.16%;
 }
 img.cabinet-frame {
   position: absolute;
@@ -263,34 +262,19 @@ img.cabinet-frame {
   user-select: none;
 }
 
-.slot-panel-backdrop,
 .slot-panel,
 .slot-grid {
   position: absolute;
 }
 
-.slot-panel-backdrop {
-  left: var(--panel-left-px);
-  top: var(--panel-top-px);
-  width: var(--panel-width-px);
-  height: var(--panel-height-px);
-  background:
-    radial-gradient(circle at 50% 50%, rgba(197, 126, 38, 0.7), rgba(60, 34, 9, 0.78) 40%, rgba(12, 8, 5, 0.94) 100%);
-  box-shadow:
-    inset 0 0 18px rgba(255, 180, 65, 0.24),
-    inset 0 0 42px rgba(0, 0, 0, 0.65);
-  pointer-events: none;
-  z-index: 1;
-}
-
 .slot-panel {
   left: var(--grid-left-px);
   top: var(--grid-top-px);
-  width: calc(var(--cell-w-px) * 5);
-  height: calc(var(--cell-h-px) * 4);
+  width: calc(var(--cell-px) * 5);
+  height: calc(var(--cell-px) * 4);
   display: grid;
-  grid-template-columns: repeat(5, var(--cell-w-px));
-  grid-template-rows: repeat(4, var(--cell-h-px));
+  grid-template-columns: repeat(5, var(--cell-px));
+  grid-template-rows: repeat(4, var(--cell-px));
   gap: 0;
   pointer-events: none;
   z-index: 2;
@@ -298,45 +282,20 @@ img.cabinet-frame {
 
 .panel-cell {
   position: relative;
-  width: var(--cell-w-px);
-  height: var(--cell-h-px);
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(228, 149, 42, 0.5),
-    rgba(50, 29, 8, 0.78) 58%,
-    rgba(13, 9, 5, 0.96)
-  );
-  box-shadow:
-    inset 0 0 10px rgba(255, 185, 73, 0.16),
-    inset 0 0 22px rgba(0, 0, 0, 0.45);
-}
-
-.panel-cell::before,
-.panel-cell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-style: solid;
-  border-image: linear-gradient(90deg, #60410f, #ffd064 30%, #7c5412 50%, #ffd064 70%, #60410f) 1;
-}
-
-.panel-cell::before {
-  border-width: 2px 0;
-}
-
-.panel-cell::after {
-  border-width: 0 2px;
+  width: var(--cell-px);
+  height: var(--cell-px);
+  aspect-ratio: 1 / 1;
+  background: transparent;
 }
 
 .slot-grid {
   left: var(--grid-left-px);
   top: var(--grid-top-px);
-  width: calc(var(--cell-w-px) * 5);
-  height: calc(var(--cell-h-px) * 4);
+  width: calc(var(--cell-px) * 5);
+  height: calc(var(--cell-px) * 4);
   display: grid;
-  grid-template-columns: repeat(5, var(--cell-w-px));
-  grid-template-rows: repeat(4, var(--cell-h-px));
+  grid-template-columns: repeat(5, var(--cell-px));
+  grid-template-rows: repeat(4, var(--cell-px));
   gap: 0;
   padding: 0;
   background: transparent;
@@ -348,16 +307,17 @@ img.cabinet-frame {
   position: absolute;
   left: var(--grid-left-px);
   top: var(--grid-top-px);
-  width: calc(var(--cell-w-px) * 5);
-  height: calc(var(--cell-h-px) * 4);
+  width: calc(var(--cell-px) * 5);
+  height: calc(var(--cell-px) * 4);
   border: 2px solid rgba(255, 0, 0, 0.95);
   box-shadow: inset 0 0 0 1px rgba(255, 0, 0, 0.55);
   pointer-events: none;
   z-index: 4;
 }
-.slot-grid .cell {
-  width: var(--cell-w-px);
-  height: var(--cell-h-px);
+.slot-grid .cell, .panel-cell {
+  width: var(--cell-px);
+  height: var(--cell-px);
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -370,6 +330,46 @@ img.cabinet-frame {
   height: var(--sprite-px);
   object-fit: contain;
 }
+
+/* Tithe meter -------------------------------------------------- */
+.tithe-meter-wrap { container-type: inline-size; width: 100%; height: 100%; }
+.tithe-meter {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 6px; padding: 0 4%; box-sizing: border-box;
+}
+.tithe-meter__head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: clamp(9px, 2.6cqw, 13px); letter-spacing: 0.04em; line-height: 1.1;
+}
+.tithe-meter__season { color: #ffd98a; font-weight: 700; text-transform: uppercase; }
+.tithe-meter__spins { color: #b9c3b0; }
+.tithe-meter__bar {
+  position: relative; height: clamp(18px, 7cqw, 28px);
+  border-radius: 999px; background: rgba(10, 8, 5, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(255,208,100,0.35), inset 0 2px 6px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.tithe-meter__fill {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #c57e26, #ffd064 60%, #fff0b8);
+  box-shadow: 0 0 10px rgba(255,200,90,0.6); transition: width 320ms ease-out;
+}
+.tithe-meter__bar.is-met .tithe-meter__fill {
+  background: linear-gradient(90deg, #ffd064, #fff0b8);
+  animation: tithe-pulse 1.1s ease-in-out infinite;
+}
+.tithe-meter__count {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: clamp(10px, 3cqw, 14px); font-weight: 700;
+  color: #1a1109; text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+  line-height: 1;
+}
+.tithe-meter__bell {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: clamp(12px, 4cqw, 18px); line-height: 1;
+}
+@keyframes tithe-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.35)} }
 
 .cell {
   position: relative;

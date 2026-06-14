@@ -5,7 +5,7 @@ import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
 import crownAsset from "@/assets/sprites/crown.png.asset.json";
 import orbImg from "@/assets/sprites/orb.png";
-import cabinetImg from "@/assets/cabinet.png";
+import cabinetImg from "@/assets/cabinet_clean.png";
 
 import {
   DRAFT_POOL,
@@ -388,6 +388,10 @@ function PlayPage() {
           }}
           onChipClick={onTooltipChip}
           acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
+          titheRound={state.titheRound + 1}
+          orbs={state.orbs}
+          titheRequirement={titheRequired}
+          spinsTaken={state.spinInCycle}
         />
 
         <SpinLog
@@ -631,21 +635,62 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 
 const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
-// Measured directly from cabinet.png. Grid box: left 238, top 436, 541 x 595.
+// Measured from cabinet_clean.png — square pitch on both axes.
 const PANEL_GRID = {
   left: 238,
   top: 436,
-  cellW: 108.2,
-  cellH: 148.75,
+  cell: 108.2,
   cols: 5,
   rows: 4,
 };
-const PANEL_BACKDROP = {
-  left: 210,
-  top: 395,
-  width: 600,
-  height: 475,
+const PANEL_TITHE = {
+  left: 238,
+  top: 869,
+  width: 541,
+  height: 156,
 };
+
+function seasonForRound(round: number): string {
+  if (round <= 3) return "Spring";
+  if (round <= 6) return "Midsummer";
+  if (round <= 9) return "Late Summer";
+  if (round <= 12) return "Dawn";
+  return "Endless";
+}
+
+function TitheMeter(props: {
+  round: number;
+  orbs: number;
+  requirement: number;
+  spinsTaken: number;
+  spinsPerCycle?: number;
+}) {
+  const perCycle = props.spinsPerCycle ?? 8;
+  const spinsLeft = Math.max(0, perCycle - props.spinsTaken);
+  const pct = Math.min(100, (props.orbs / Math.max(1, props.requirement)) * 100);
+  const met = props.orbs >= props.requirement;
+  return (
+    <div className="tithe-meter-wrap">
+      <div className="tithe-meter">
+        <div className="tithe-meter__head">
+          <span className="tithe-meter__season">
+            {seasonForRound(props.round)} · Round {props.round}
+          </span>
+          <span className="tithe-meter__spins">
+            {spinsLeft === 0 ? "Bell tolling" : `${spinsLeft} spin${spinsLeft === 1 ? "" : "s"} to the bell`}
+          </span>
+        </div>
+        <div className={`tithe-meter__bar${met ? " is-met" : ""}`}>
+          <div className="tithe-meter__fill" style={{ width: `${pct}%` }} />
+          <div className="tithe-meter__count">
+            {props.orbs} / {props.requirement} ✨
+          </div>
+          <div className="tithe-meter__bell">{met ? "🔔" : "🛎️"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function SlotFrame(props: {
   grid: (PoolTile | null)[];
   contributing: Set<number>;
@@ -656,6 +701,10 @@ function SlotFrame(props: {
   onCellClick: (idx: number, hasSymbol: boolean) => void;
   onChipClick: (g: SynergyGroupId) => void;
   acornCountdown: number;
+  titheRound: number;
+  orbs: number;
+  titheRequirement: number;
+  spinsTaken: number;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const cabinetImageRef = useRef<HTMLImageElement | null>(null);
@@ -684,8 +733,7 @@ function SlotFrame(props: {
       cssVariables: {
         "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
         "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
-        "--cell-w-px": computedFrameStyles.getPropertyValue("--cell-w-px").trim(),
-        "--cell-h-px": computedFrameStyles.getPropertyValue("--cell-h-px").trim(),
+          "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
         "--sprite-px": computedFrameStyles.getPropertyValue("--sprite-px").trim(),
       },
     };
@@ -706,25 +754,18 @@ function SlotFrame(props: {
       if (import.meta.env.DEV && Math.abs(scale - scaleY) > 0.01) {
         console.warn("[SlotFrame] cabinet aspect scale mismatch", { scaleX: scale, scaleY });
       }
-      const backdropW = PANEL_BACKDROP.width * scale;
-      const backdropH = PANEL_BACKDROP.height * scale;
-      const backdropLeft = PANEL_BACKDROP.left * scale;
-      const backdropTop = PANEL_BACKDROP.top * scale;
-      const gridLeft = PANEL_GRID.left * scale;
-      const gridTop = PANEL_GRID.top * scale;
-      const cellW = PANEL_GRID.cellW * scale;
-      const cellH = PANEL_GRID.cellH * scale;
-      const spritePx = Math.min(cellW, cellH) * 0.74;
+      const cellPx = PANEL_GRID.cell * scale;
+      const spritePx = cellPx * 0.74;
 
-      frame.style.setProperty("--panel-left-px", `${backdropLeft}px`);
-      frame.style.setProperty("--panel-top-px", `${backdropTop}px`);
-      frame.style.setProperty("--panel-width-px", `${backdropW}px`);
-      frame.style.setProperty("--panel-height-px", `${backdropH}px`);
-      frame.style.setProperty("--grid-left-px", `${gridLeft}px`);
-      frame.style.setProperty("--grid-top-px", `${gridTop}px`);
-      frame.style.setProperty("--cell-w-px", `${cellW}px`);
-      frame.style.setProperty("--cell-h-px", `${cellH}px`);
+      frame.style.setProperty("--grid-left-px", `${PANEL_GRID.left * scale}px`);
+      frame.style.setProperty("--grid-top-px", `${PANEL_GRID.top * scale}px`);
+      frame.style.setProperty("--cell-px", `${cellPx}px`);
       frame.style.setProperty("--sprite-px", `${spritePx}px`);
+
+      frame.style.setProperty("--tithe-left-px", `${PANEL_TITHE.left * scale}px`);
+      frame.style.setProperty("--tithe-top-px", `${PANEL_TITHE.top * scale}px`);
+      frame.style.setProperty("--tithe-w-px", `${PANEL_TITHE.width * scale}px`);
+      frame.style.setProperty("--tithe-h-px", `${PANEL_TITHE.height * scale}px`);
       requestAnimationFrame(logCabinetLayout);
     };
 
@@ -762,7 +803,6 @@ function SlotFrame(props: {
         onLoad={() => requestAnimationFrame(logCabinetLayout)}
         aria-hidden
       />
-      <div className="slot-panel-backdrop" aria-hidden />
       <div className="slot-panel" aria-hidden>
         {Array.from({ length: GRID_SIZE }).map((_, i) => (
           <div key={i} className="panel-cell" />
@@ -776,8 +816,8 @@ function SlotFrame(props: {
             left: "var(--grid-left-px)",
             top: "var(--grid-top-px)",
             display: "grid",
-            gridTemplateColumns: `repeat(${PANEL_GRID.cols}, var(--cell-w-px))`,
-            gridTemplateRows: `repeat(${PANEL_GRID.rows}, var(--cell-h-px))`,
+            gridTemplateColumns: `repeat(${PANEL_GRID.cols}, var(--cell-px))`,
+            gridTemplateRows: `repeat(${PANEL_GRID.rows}, var(--cell-px))`,
             gap: 0,
             outline: "2px solid red",
             pointerEvents: "none",
@@ -789,8 +829,9 @@ function SlotFrame(props: {
             <div
               key={i}
               style={{
-                width: "var(--cell-w-px)",
-                height: "var(--cell-h-px)",
+                width: "var(--cell-px)",
+                height: "var(--cell-px)",
+                aspectRatio: "1 / 1",
                 outline: "1px solid rgba(255, 0, 0, 0.6)",
                 boxSizing: "border-box",
               }}
@@ -857,6 +898,24 @@ function SlotFrame(props: {
             </div>
           );
         })}
+      </div>
+      <div
+        className="tithe-meter-slot"
+        style={{
+          position: "absolute",
+          left: "var(--tithe-left-px)",
+          top: "var(--tithe-top-px)",
+          width: "var(--tithe-w-px)",
+          height: "var(--tithe-h-px)",
+          zIndex: 5,
+        }}
+      >
+        <TitheMeter
+          round={props.titheRound}
+          orbs={props.orbs}
+          requirement={props.titheRequirement}
+          spinsTaken={props.spinsTaken}
+        />
       </div>
     </div>
   );

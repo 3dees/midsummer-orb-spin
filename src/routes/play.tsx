@@ -1,0 +1,460 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+
+import backgroundAsset from "@/assets/background.png.asset.json";
+import flameAsset from "@/assets/sprites/flame.png.asset.json";
+import crownAsset from "@/assets/sprites/crown.png.asset.json";
+import orbImg from "@/assets/sprites/orb.png";
+
+import {
+  DRAFT_POOL,
+  STARTING_POOL,
+  SYMBOLS,
+  type SymbolId,
+} from "@/lib/midsummer/symbols";
+import {
+  EMBERS_PER_TITHE,
+  GRID_COLS,
+  GRID_ROWS,
+  GRID_SIZE,
+  START_EMBERS,
+  TITHE_INTERVAL,
+  TITHE_REQUIREMENTS,
+  pickDraft,
+  rollGrid,
+  scoreGrid,
+} from "@/lib/midsummer/engine";
+
+export const Route = createFileRoute("/play")({
+  head: () => ({
+    meta: [
+      { title: "Midsummer Slots" },
+      { name: "description", content: "A roguelite slot machine in a midsummer night forest." },
+    ],
+  }),
+  component: PlayPage,
+});
+
+// -------- State ------------------------------------------------------------
+
+type Phase =
+  | { kind: "idle" }
+  | { kind: "spinning" }
+  | { kind: "resolved" }
+  | { kind: "tithe-passed"; round: number }
+  | { kind: "tithe-failed"; round: number; orbs: number; required: number }
+  | { kind: "draft"; offers: SymbolId[] }
+  | { kind: "win" }
+  | { kind: "loss" };
+
+interface GameState {
+  embers: number;
+  orbs: number; // banked towards tithe
+  bloomShards: number;
+  pool: SymbolId[];
+  grid: SymbolId[];
+  spinInCycle: number; // 0..TITHE_INTERVAL
+  titheRound: number; // 0..TITHE_REQUIREMENTS.length
+  dandelionStreak: number;
+  lastScore: number;
+  contributingCells: Set<number>;
+  phase: Phase;
+}
+
+function initialState(): GameState {
+  return {
+    embers: START_EMBERS,
+    orbs: 0,
+    bloomShards: 0,
+    pool: [...STARTING_POOL],
+    grid: rollGrid(STARTING_POOL),
+    spinInCycle: 0,
+    titheRound: 0,
+    dandelionStreak: 0,
+    lastScore: 0,
+    contributingCells: new Set(),
+    phase: { kind: "idle" },
+  };
+}
+
+type Action =
+  | { type: "BEGIN_SPIN" }
+  | { type: "RESOLVE_SPIN" }
+  | { type: "CONTINUE_FROM_TITHE_PASS" }
+  | { type: "PICK_DRAFT"; id: SymbolId }
+  | { type: "SKIP_DRAFT" }
+  | { type: "RESTART" };
+
+function reducer(state: GameState, action: Action): GameState {
+  switch (action.type) {
+    case "BEGIN_SPIN": {
+      if (state.embers <= 0) return state;
+      if (state.phase.kind !== "idle" && state.phase.kind !== "resolved") return state;
+      return {
+        ...state,
+        embers: state.embers - 1,
+        // Temporary scrambled grid while "spinning"
+        grid: rollGrid(state.pool),
+        contributingCells: new Set(),
+        lastScore: 0,
+        phase: { kind: "spinning" },
+      };
+    }
+    case "RESOLVE_SPIN": {
+      if (state.phase.kind !== "spinning") return state;
+      const finalGrid = rollGrid(state.pool);
+      const score = scoreGrid(finalGrid, { dandelionStreak: state.dandelionStreak });
+      const nextSpin = state.spinInCycle + 1;
+      const nextOrbs = state.orbs + score.orbs;
+      const nextEmbers = state.embers + score.embersGained;
+      const nextShards = state.bloomShards + score.bloomShardsGained;
+
+      const base: GameState = {
+        ...state,
+        grid: finalGrid,
+        orbs: nextOrbs,
+        embers: nextEmbers,
+        bloomShards: nextShards,
+        lastScore: score.orbs,
+        contributingCells: score.contributingCells,
+        dandelionStreak: score.dandelionStreakNext,
+        spinInCycle: nextSpin,
+        phase: { kind: "resolved" },
+      };
+
+      // Tithe check on the 8th spin of a cycle.
+      if (nextSpin >= TITHE_INTERVAL) {
+        const required = TITHE_REQUIREMENTS[state.titheRound];
+        if (nextOrbs >= required) {
+          const newRound = state.titheRound + 1;
+          if (newRound >= TITHE_REQUIREMENTS.length) {
+            return { ...base, phase: { kind: "win" } };
+          }
+          return {
+            ...base,
+            phase: { kind: "tithe-passed", round: state.titheRound + 1 },
+          };
+        }
+        return {
+          ...base,
+          phase: {
+            kind: "tithe-failed",
+            round: state.titheRound + 1,
+            orbs: nextOrbs,
+            required,
+          },
+        };
+      }
+      return base;
+    }
+    case "CONTINUE_FROM_TITHE_PASS": {
+      // Reset cycle, pay reward, open the draft.
+      const offers = pickDraft(DRAFT_POOL, state.pool);
+      return {
+        ...state,
+        orbs: 0,
+        embers: state.embers + EMBERS_PER_TITHE,
+        spinInCycle: 0,
+        titheRound: state.titheRound + 1,
+        phase: offers.length > 0 ? { kind: "draft", offers } : { kind: "idle" },
+      };
+    }
+    case "PICK_DRAFT": {
+      if (state.phase.kind !== "draft") return state;
+      return {
+        ...state,
+        pool: [...state.pool, action.id],
+        phase: { kind: "idle" },
+      };
+    }
+    case "SKIP_DRAFT": {
+      if (state.phase.kind !== "draft") return state;
+      return { ...state, phase: { kind: "idle" } };
+    }
+    case "RESTART":
+      return initialState();
+    default:
+      return state;
+  }
+}
+
+// -------- UI ---------------------------------------------------------------
+
+function PlayPage() {
+  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
+
+  // After BEGIN_SPIN, settle the spin after a short animation window.
+  useEffect(() => {
+    if (state.phase.kind !== "spinning") return;
+    const t = setTimeout(() => dispatch({ type: "RESOLVE_SPIN" }), 650);
+    return () => clearTimeout(t);
+  }, [state.phase.kind]);
+
+  // Show floating "+N orbs" when a spin resolves.
+  useEffect(() => {
+    if (state.phase.kind === "resolved" && state.lastScore > 0) {
+      setFloatScore({ value: state.lastScore, key: Date.now() });
+      const t = setTimeout(() => setFloatScore(null), 1400);
+      return () => clearTimeout(t);
+    }
+  }, [state.phase, state.lastScore]);
+
+  const titheRequired = TITHE_REQUIREMENTS[state.titheRound] ?? 0;
+  const spinsLeft = Math.max(0, TITHE_INTERVAL - state.spinInCycle);
+  const titheWarning = state.titheRound < TITHE_REQUIREMENTS.length && spinsLeft <= 2 && state.phase.kind !== "spinning";
+
+  const canSpin =
+    state.embers > 0 &&
+    (state.phase.kind === "idle" || state.phase.kind === "resolved");
+
+  const onSpin = useCallback(() => {
+    dispatch({ type: "BEGIN_SPIN" });
+  }, []);
+
+  return (
+    <div className="midsummer-root">
+      {/* Forest backdrop */}
+      <div
+        className="midsummer-bg"
+        style={{ backgroundImage: `url(${backgroundAsset.url})` }}
+        aria-hidden
+      />
+      <div className="midsummer-vignette" aria-hidden />
+
+      <main className="midsummer-stage">
+        <Header
+          embers={state.embers}
+          orbs={state.orbs}
+          shards={state.bloomShards}
+          titheRequired={titheRequired}
+          spinInCycle={state.spinInCycle}
+          titheRound={state.titheRound}
+        />
+
+        {titheWarning && (
+          <div className="tithe-warning animate-fade-in">
+            <span>🔔</span> Tithe in {spinsLeft || "now"} — need {titheRequired} orbs
+          </div>
+        )}
+
+        <SlotFrame
+          grid={state.grid}
+          contributing={state.contributingCells}
+          spinning={state.phase.kind === "spinning"}
+        />
+
+        <SpinBar
+          canSpin={canSpin}
+          embers={state.embers}
+          onSpin={onSpin}
+          spinning={state.phase.kind === "spinning"}
+          floatScore={floatScore}
+          pool={state.pool}
+        />
+      </main>
+
+      {/* Overlays */}
+      {state.phase.kind === "tithe-passed" && (
+        <Overlay>
+          <h2 className="overlay-title">Tithe paid</h2>
+          <p className="overlay-sub">
+            Round {state.phase.round} of {TITHE_REQUIREMENTS.length} cleared.
+            <br />+{EMBERS_PER_TITHE} Embers granted.
+          </p>
+          <button
+            className="primary-btn"
+            onClick={() => dispatch({ type: "CONTINUE_FROM_TITHE_PASS" })}
+          >
+            Choose a new symbol
+          </button>
+        </Overlay>
+      )}
+
+      {state.phase.kind === "draft" && (
+        <Overlay>
+          <h2 className="overlay-title">Draft a symbol</h2>
+          <p className="overlay-sub">Add one to your spin pool, permanently.</p>
+          <div className="draft-grid">
+            {state.phase.offers.map((id) => {
+              const def = SYMBOLS[id];
+              return (
+                <button
+                  key={id}
+                  className="draft-card"
+                  onClick={() => dispatch({ type: "PICK_DRAFT", id })}
+                >
+                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  <div className="draft-name">{def.name}</div>
+                  <div className="draft-desc">{def.description}</div>
+                </button>
+              );
+            })}
+          </div>
+          {state.phase.offers.length === 0 && (
+            <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
+              Continue
+            </button>
+          )}
+        </Overlay>
+      )}
+
+      {state.phase.kind === "tithe-failed" && (
+        <Overlay>
+          <h2 className="overlay-title">The forest claims its due</h2>
+          <p className="overlay-sub">
+            Round {state.phase.round}: {state.phase.orbs} / {state.phase.required} orbs.
+          </p>
+          <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
+            Try again
+          </button>
+        </Overlay>
+      )}
+
+      {state.phase.kind === "win" && (
+        <Overlay>
+          <img src={crownAsset.url} alt="" className="pixelart crown" />
+          <h2 className="overlay-title">Crowned of Midsummer</h2>
+          <p className="overlay-sub">All three tithes paid. The wood remembers your name.</p>
+          <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
+            New run
+          </button>
+        </Overlay>
+      )}
+
+      {/* Out of embers without a passing orb count = loss too */}
+      {state.phase.kind !== "spinning" &&
+        state.phase.kind !== "tithe-failed" &&
+        state.phase.kind !== "win" &&
+        state.phase.kind !== "tithe-passed" &&
+        state.phase.kind !== "draft" &&
+        state.embers === 0 &&
+        state.orbs < titheRequired && (
+          <Overlay>
+            <h2 className="overlay-title">Out of embers</h2>
+            <p className="overlay-sub">The flame is cold. The tithe will not be paid.</p>
+            <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
+              Try again
+            </button>
+          </Overlay>
+        )}
+    </div>
+  );
+}
+
+// -------- Subcomponents ----------------------------------------------------
+
+function Header(props: {
+  embers: number;
+  orbs: number;
+  shards: number;
+  titheRequired: number;
+  spinInCycle: number;
+  titheRound: number;
+}) {
+  const totalRounds = TITHE_REQUIREMENTS.length;
+  return (
+    <header className="hud">
+      <div className="hud-row">
+        <Stat icon={<img src={flameAsset.url} alt="" className="pixelart hud-icon" />} value={props.embers} label="Embers" />
+        <Stat icon={<img src={orbImg} alt="" className="pixelart hud-icon" />} value={props.orbs} label="Light Orbs" />
+        <Stat icon={<span className="hud-shard">◆</span>} value={props.shards} label="Bloom" />
+      </div>
+      <div className="hud-tithe">
+        <span>Spin {Math.min(props.spinInCycle + 1, TITHE_INTERVAL)} / {TITHE_INTERVAL}</span>
+        <span className="hud-dot">·</span>
+        <span>
+          Tithe {Math.min(props.titheRound + 1, totalRounds)}/{totalRounds}: {props.orbs}/{props.titheRequired}
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
+  return (
+    <div className="stat" title={props.label}>
+      {props.icon}
+      <span className="stat-value">{props.value}</span>
+    </div>
+  );
+}
+
+function SlotFrame(props: {
+  grid: SymbolId[];
+  contributing: Set<number>;
+  spinning: boolean;
+}) {
+  return (
+    <div className="slot-frame">
+      <div className="slot-grid">
+        {props.grid.map((id, i) => {
+          const def = SYMBOLS[id];
+          const isHot = props.contributing.has(i) && !props.spinning;
+          return (
+            <div key={i} className={`cell ${isHot ? "cell-hot" : ""}`}>
+              <img
+                key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
+                src={def.sprite}
+                alt={def.name}
+                className={`pixelart cell-sprite ${props.spinning ? "spinning" : "settled"}`}
+                style={{ animationDelay: `${(i % GRID_COLS) * 40}ms` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SpinBar(props: {
+  canSpin: boolean;
+  embers: number;
+  onSpin: () => void;
+  spinning: boolean;
+  floatScore: { value: number; key: number } | null;
+  pool: SymbolId[];
+}) {
+  return (
+    <div className="spin-bar">
+      <div className="pool-strip" aria-label="Your symbol pool">
+        {props.pool.map((id) => (
+          <img
+            key={id}
+            src={SYMBOLS[id].sprite}
+            alt={SYMBOLS[id].name}
+            title={`${SYMBOLS[id].name}: ${SYMBOLS[id].description}`}
+            className="pixelart pool-icon"
+          />
+        ))}
+      </div>
+      <div className="spin-button-wrap">
+        {props.floatScore && (
+          <div key={props.floatScore.key} className="float-score">
+            +{props.floatScore.value}
+            <img src={orbImg} alt="" className="pixelart float-orb" />
+          </div>
+        )}
+        <button
+          className="spin-btn"
+          onClick={props.onSpin}
+          disabled={!props.canSpin}
+        >
+          {props.spinning ? "Spinning…" : "Spin"}
+          <span className="spin-cost">
+            −1 <img src={flameAsset.url} alt="" className="pixelart spin-cost-icon" />
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Overlay(props: { children: React.ReactNode }) {
+  return (
+    <div className="overlay animate-fade-in">
+      <div className="overlay-card">{props.children}</div>
+    </div>
+  );
+}

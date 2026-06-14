@@ -632,10 +632,12 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
 const PANEL_GRID = {
-  left: 212,
-  top: 395,
-  cell: 115,
-  gap: 5,
+  left: 200,
+  top: 370,
+  cell: 122,
+  gap: 6,
+  cols: 5,
+  rows: 4,
 };
 const PANEL_BACKDROP = {
   left: 210,
@@ -643,8 +645,8 @@ const PANEL_BACKDROP = {
   width: 600,
   height: 475,
 };
-const PANEL_GRID_W = PANEL_GRID.cell * 5 + PANEL_GRID.gap * 4;
-const PANEL_GRID_H = PANEL_GRID.cell * 4 + PANEL_GRID.gap * 3;
+const PANEL_GRID_W = PANEL_GRID.cell * PANEL_GRID.cols + PANEL_GRID.gap * (PANEL_GRID.cols - 1);
+const PANEL_GRID_H = PANEL_GRID.cell * PANEL_GRID.rows + PANEL_GRID.gap * (PANEL_GRID.rows - 1);
 
 function snapDownToDevicePx(value: number, dpr: number, minDevicePx = 1) {
   return Math.max(minDevicePx, Math.floor(value * dpr)) / dpr;
@@ -693,6 +695,7 @@ function SlotFrame(props: {
         "--grid-left-px": computedFrameStyles.getPropertyValue("--grid-left-px").trim(),
         "--grid-top-px": computedFrameStyles.getPropertyValue("--grid-top-px").trim(),
         "--cell-px": computedFrameStyles.getPropertyValue("--cell-px").trim(),
+        "--gap-px": computedFrameStyles.getPropertyValue("--gap-px").trim(),
       },
     };
     console.log(`[SlotFrame] cabinet layout calibration ${JSON.stringify(payload)}`);

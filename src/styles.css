@@ -230,19 +230,18 @@
 /* Slot frame -------------------------------------------------- */
 .slot-frame {
   position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  aspect-ratio: 1024 / 1536;
   background: transparent;
   border: none;
 }
 .cabinet-frame {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 520px;
-  height: auto;
+  height: 100%;
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 0 24px rgba(255,170,70,0.18));

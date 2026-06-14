@@ -21,7 +21,6 @@ import {
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
   pickDraft,
-  poolCounts,
   rollGrid,
   scoreGrid,
 } from "@/lib/midsummer/engine";
@@ -52,7 +51,7 @@ interface GameState {
   orbs: number; // banked towards tithe
   bloomShards: number;
   pool: SymbolId[];
-  grid: SymbolId[];
+  grid: (SymbolId | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
   titheRound: number; // 0..TITHE_REQUIREMENTS.length
   dandelionStreak: number;
@@ -381,7 +380,7 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 }
 
 function SlotFrame(props: {
-  grid: SymbolId[];
+  grid: (SymbolId | null)[];
   contributing: Set<number>;
   spinning: boolean;
 }) {
@@ -389,6 +388,9 @@ function SlotFrame(props: {
     <div className="slot-frame">
       <div className="slot-grid">
         {props.grid.map((id, i) => {
+          if (id == null) {
+            return <div key={i} className="cell cell-empty" aria-hidden />;
+          }
           const def = SYMBOLS[id];
           const isHot = props.contributing.has(i) && !props.spinning;
           return (
@@ -416,18 +418,8 @@ function SpinBar(props: {
   floatScore: { value: number; key: number } | null;
   pool: SymbolId[];
 }) {
-  const counts = poolCounts(props.pool);
   return (
     <div className="spin-bar">
-      <div className="pool-strip" aria-label="Your symbol pool" title="Your pool: every spin samples from these symbols. Duplicates appear more often.">
-        {counts.map(([id, n]) => (
-          <div key={id} className="pool-chip" title={`${SYMBOLS[id].name} ×${n}: ${SYMBOLS[id].description}`}>
-            <img src={SYMBOLS[id].sprite} alt={SYMBOLS[id].name} className="pixelart pool-icon" />
-            {n > 1 && <span className="pool-count">×{n}</span>}
-          </div>
-        ))}
-      </div>
-      <div className="pool-hint">Pool: {props.pool.length} symbols · duplicates spin more often</div>
       <div className="spin-button-wrap">
         {props.floatScore && (
           <div key={props.floatScore.key} className="float-score">

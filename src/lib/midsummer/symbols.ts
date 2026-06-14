@@ -80,6 +80,36 @@ export type SymbolId =
   // v2 transforms (referenced but not yet draftable)
   | "ancient_oak";
 
+// ===== Named synergy groups (for tooltips & highlights) =====
+export const SYNERGY_GROUPS = {
+  nocturnal_web:   { name: "Nocturnal Web",       members: ["moth","firefly","owl","lantern","fae_wings"] as SymbolId[] },
+  forest_floor:    { name: "Forest Floor",        members: ["mushroom","fern","snail","hedgehog","pebble","fairy_ring","acorn","oak_leaf","berry","ancient_oak"] as SymbolId[] },
+  pollinator:      { name: "Pollinator Chain",    members: ["honeybee","foxglove","beehive","honey_jar"] as SymbolId[] },
+  predator_prey:   { name: "Predator & Prey",     members: ["fox","rabbit"] as SymbolId[] },
+  ancient_circle:  { name: "Ancient Circle",      members: ["standing_stone","sun_wheel","antler_crown"] as SymbolId[] },
+  wild_garden:     { name: "Wild Garden",         members: ["wild_rose","foxglove","dewdrop","dandelion"] as SymbolId[] },
+  murder_of_crows: { name: "Murder of Crows",     members: ["crow"] as SymbolId[] },
+  green_blessing:  { name: "Green Man Blessing",  members: ["green_man","fern","mushroom","acorn","oak_leaf","dewdrop","foxglove","wild_rose","dandelion"] as SymbolId[] },
+} as const;
+export type SynergyGroupId = keyof typeof SYNERGY_GROUPS;
+
+export function groupsForSymbol(id: SymbolId): SynergyGroupId[] {
+  const out: SynergyGroupId[] = [];
+  for (const key of Object.keys(SYNERGY_GROUPS) as SynergyGroupId[]) {
+    if (SYNERGY_GROUPS[key].members.includes(id)) out.push(key);
+  }
+  return out;
+}
+
+/** Uncommon ids — used by Green Man's transformCommon when drafted. */
+export const UNCOMMON_IDS: SymbolId[] = [
+  "fox","rabbit","honeybee","lantern","owl","foxglove","hedgehog","wild_rose","oak_leaf","crow",
+];
+/** Common ids — Green Man upgrades 3 of these when drafted. */
+export const COMMON_IDS: SymbolId[] = [
+  "firefly","fern","mushroom","acorn","dewdrop","moth","pebble","clover","sparrow","berry","dandelion","snail",
+];
+
 export interface SymbolDef {
   id: SymbolId;
   name: string;
@@ -131,7 +161,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "acorn", name: "Acorn", rarity: "common", emoji: "🌰",
     baseValue: 1, tags: ["forest_floor"],
     synergies: [
-      { type: "transform", transformInto: "oak_leaf", afterSpins: 5, description: "Transforms into Oak Leaf after 5 spins (v2)" },
+      { type: "transform", transformInto: "oak_leaf", afterSpins: 5, description: "Transforms into Oak Leaf after appearing 5 times" },
     ],
   }),
   dewdrop: def({
@@ -332,8 +362,8 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "green_man", name: "The Green Man", rarity: "very_rare", emoji: "🌳",
     baseValue: 12, tags: [],
     synergies: [
-      { type: "treatAsAdjacent", targets: ["forest_floor", "flower"], description: "Forest Floor and Flower all count adjacent (v2)" },
-      { type: "transformCommon", count: 3, transformInto: "uncommon", description: "Upgrades 3 random Commons to Uncommon each run (v2)" },
+      { type: "treatAsAdjacent", targets: ["forest_floor", "flower"], description: "Forest Floor & Flower count as adjacent grid-wide" },
+      { type: "transformCommon", count: 3, transformInto: "uncommon", description: "Upgrades 3 random Commons in your pool to Uncommons on draft" },
     ],
   }),
 

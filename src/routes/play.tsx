@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 
 import backgroundAsset from "@/assets/background.png.asset.json";
 import flameAsset from "@/assets/sprites/flame.png.asset.json";
@@ -10,16 +10,23 @@ import {
   DRAFT_POOL,
   STARTING_POOL,
   SYMBOLS,
+  SYNERGY_GROUPS,
+  COMMON_IDS,
+  UNCOMMON_IDS,
+  groupsForSymbol,
   type SymbolId,
+  type SynergyGroupId,
 } from "@/lib/midsummer/symbols";
 import {
   EMBERS_PER_TITHE,
   GRID_COLS,
-  GRID_ROWS,
   GRID_SIZE,
   START_EMBERS,
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
+  type PoolTile,
+  type SpinEvent,
+  makeTile,
   pickDraft,
   poolCounts,
   rollGrid,
@@ -44,6 +51,7 @@ type Phase =
   | { kind: "tithe-passed"; round: number }
   | { kind: "tithe-failed"; round: number; orbs: number; required: number }
   | { kind: "draft"; offers: SymbolId[] }
+  | { kind: "green-man-upgrade"; from: SymbolId[]; to: SymbolId[] }
   | { kind: "win" }
   | { kind: "loss" };
 
@@ -52,8 +60,8 @@ interface GameState {
   orbs: number; // banked towards tithe
   bloomShards: number;
   moonTokens: number;
-  pool: SymbolId[];
-  grid: (SymbolId | null)[];
+  pool: PoolTile[];
+  grid: (PoolTile | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
   titheRound: number; // 0..TITHE_REQUIREMENTS.length
   totalSpins: number;
@@ -61,18 +69,21 @@ interface GameState {
   destroyedThisRun: number;
   appearanceCounts: Record<string, number>;
   lastScore: number;
+  lastRewards: { embers: number; bloomShards: number; moonTokens: number };
+  lastEvents: SpinEvent[];
   contributingCells: Set<number>;
   phase: Phase;
 }
 
 function initialState(): GameState {
+  const pool = STARTING_POOL.map((id) => makeTile(id));
   return {
     embers: START_EMBERS,
     orbs: 0,
     bloomShards: 0,
     moonTokens: 0,
-    pool: [...STARTING_POOL],
-    grid: rollGrid(STARTING_POOL),
+    pool,
+    grid: rollGrid(pool),
     spinInCycle: 0,
     titheRound: 0,
     totalSpins: 0,
@@ -80,6 +91,8 @@ function initialState(): GameState {
     destroyedThisRun: 0,
     appearanceCounts: {},
     lastScore: 0,
+    lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
+    lastEvents: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
   };
@@ -91,6 +104,7 @@ type Action =
   | { type: "ACK_TITHE_PASS" }
   | { type: "PICK_DRAFT"; id: SymbolId }
   | { type: "SKIP_DRAFT" }
+  | { type: "ACK_GREEN_MAN" }
   | { type: "RESTART" };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -105,6 +119,8 @@ function reducer(state: GameState, action: Action): GameState {
         grid: rollGrid(state.pool),
         contributingCells: new Set(),
         lastScore: 0,
+        lastEvents: [],
+        lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
         phase: { kind: "spinning" },
       };
     }
@@ -118,6 +134,25 @@ function reducer(state: GameState, action: Action): GameState {
         destroyedThisRun: state.destroyedThisRun,
         alternatingTick: state.alternatingTick,
       });
+
+      // Age each tile that landed on the grid; transform Acorn → Oak Leaf
+      // after its 5th appearance (per-instance, not per id).
+      const events: SpinEvent[] = [...score.events];
+      const nextPool: PoolTile[] = state.pool.map((t) => {
+        const landed = finalGrid.some((c) => c && c.uid === t.uid);
+        if (!landed) return t;
+        const aged: PoolTile = { ...t, age: t.age + 1 };
+        if (aged.id === "acorn" && aged.age >= 5) {
+          const cellIdx = finalGrid.findIndex((c) => c && c.uid === t.uid);
+          events.push({ kind: "transform", cell: cellIdx, from: "acorn", to: "oak_leaf" });
+          return { ...makeTile("oak_leaf"), uid: t.uid };
+        }
+        return aged;
+      });
+      const displayedGrid: (PoolTile | null)[] = finalGrid.map((cell) =>
+        cell ? nextPool.find((t) => t.uid === cell.uid) ?? cell : null,
+      );
+
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
       const nextEmbers = state.embers + score.embersGained;
@@ -126,12 +161,19 @@ function reducer(state: GameState, action: Action): GameState {
 
       const base: GameState = {
         ...state,
-        grid: finalGrid,
+        pool: nextPool,
+        grid: displayedGrid,
         orbs: nextOrbs,
         embers: nextEmbers,
         bloomShards: nextShards,
         moonTokens: nextMoonTokens,
         lastScore: score.orbs,
+        lastRewards: {
+          embers: score.embersGained,
+          bloomShards: score.bloomShardsGained,
+          moonTokens: score.moonTokensGained,
+        },
+        lastEvents: events,
         contributingCells: score.contributingCells,
         appearanceCounts: score.appearanceCountsNext,
         totalSpins: state.totalSpins + 1,
@@ -179,18 +221,42 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "PICK_DRAFT": {
       if (state.phase.kind !== "draft") return state;
-      // Add the new symbol instance to the pool permanently AND immediately
-      // re-roll the grid so the player can see it placed before their next
-      // spin. Future versions will let the player spend tokens here to
-      // remove symbols from their pool before committing the spin.
-      const nextPool = [...state.pool, action.id];
+      const added = makeTile(action.id);
+      const nextPool: PoolTile[] = [...state.pool, added];
+
+      // Green Man's `transformCommon`: pick up to 3 Common tiles in the pool
+      // and replace them with random Uncommons. Fires on draft pick only.
+      let upgradePhase: Phase | null = null;
+      if (action.id === "green_man") {
+        const commonIdxs = nextPool
+          .map((t, idx) => ({ idx, id: t.id }))
+          .filter((p) => COMMON_IDS.includes(p.id))
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        if (commonIdxs.length > 0) {
+          const fromIds: SymbolId[] = [];
+          const toIds: SymbolId[] = [];
+          for (const { idx } of commonIdxs) {
+            const newId = UNCOMMON_IDS[Math.floor(Math.random() * UNCOMMON_IDS.length)];
+            fromIds.push(nextPool[idx].id);
+            toIds.push(newId);
+            nextPool[idx] = { ...makeTile(newId), uid: nextPool[idx].uid };
+          }
+          upgradePhase = { kind: "green-man-upgrade", from: fromIds, to: toIds };
+        }
+      }
+
       return {
         ...state,
         pool: nextPool,
         grid: rollGrid(nextPool),
         contributingCells: new Set(),
-        phase: { kind: "idle" },
+        phase: upgradePhase ?? { kind: "idle" },
       };
+    }
+    case "ACK_GREEN_MAN": {
+      if (state.phase.kind !== "green-man-upgrade") return state;
+      return { ...state, phase: { kind: "idle" } };
     }
     case "SKIP_DRAFT": {
       if (state.phase.kind !== "draft") return state;
@@ -209,6 +275,12 @@ function PlayPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
   const [poolOpen, setPoolOpen] = useState(false);
+  const [tooltip, setTooltip] = useState<
+    | { kind: "cell"; index: number }
+    | { kind: "pool"; id: SymbolId }
+    | null
+  >(null);
+  const [highlightGroup, setHighlightGroup] = useState<SynergyGroupId | null>(null);
 
   // After BEGIN_SPIN, settle the spin after a short animation window.
   useEffect(() => {
@@ -233,11 +305,40 @@ function PlayPage() {
   const canSpin = state.embers > 0 && state.phase.kind === "idle";
 
   const onSpin = useCallback(() => {
+    setTooltip(null);
     dispatch({ type: "BEGIN_SPIN" });
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setTooltip(null);
+        setHighlightGroup(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Min age across all instances per id (for Acorn countdown tooltip).
+  const minAgeById = useMemo(() => {
+    const m: Partial<Record<SymbolId, number>> = {};
+    for (const t of state.pool) {
+      const cur = m[t.id];
+      m[t.id] = cur == null ? t.age : Math.min(cur, t.age);
+    }
+    return m;
+  }, [state.pool]);
+
+  const onTooltipChip = (g: SynergyGroupId) => {
+    setHighlightGroup((cur) => (cur === g ? null : g));
+  };
+  const highlightedMembers: SymbolId[] = highlightGroup
+    ? [...SYNERGY_GROUPS[highlightGroup].members]
+    : [];
+
   return (
-    <div className="midsummer-root">
+    <div className="midsummer-root" onClick={() => setTooltip(null)}>
       {/* Forest backdrop */}
       <div
         className="midsummer-bg"
@@ -246,7 +347,7 @@ function PlayPage() {
       />
       <div className="midsummer-vignette" aria-hidden />
 
-      <main className="midsummer-stage">
+      <main className="midsummer-stage" onClick={(e) => e.stopPropagation()}>
         <Header
           embers={state.embers}
           orbs={state.orbs}
@@ -263,10 +364,36 @@ function PlayPage() {
           </div>
         )}
 
+        {highlightGroup && (
+          <button className="group-banner" onClick={() => setHighlightGroup(null)}>
+            <span className="group-banner-dot" /> Highlighting{" "}
+            <b>{SYNERGY_GROUPS[highlightGroup].name}</b>
+            <span className="group-banner-close">×</span>
+          </button>
+        )}
+
         <SlotFrame
           grid={state.grid}
           contributing={state.contributingCells}
           spinning={state.phase.kind === "spinning"}
+          highlightedMembers={highlightedMembers}
+          highlightGroup={highlightGroup}
+          openTooltipCell={tooltip && tooltip.kind === "cell" ? tooltip.index : null}
+          onCellClick={(idx, hasSymbol) => {
+            if (!hasSymbol) { setTooltip(null); return; }
+            setTooltip((cur) =>
+              cur && cur.kind === "cell" && cur.index === idx ? null : { kind: "cell", index: idx },
+            );
+          }}
+          onChipClick={onTooltipChip}
+          acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
+        />
+
+        <SpinLog
+          events={state.lastEvents}
+          orbs={state.lastScore}
+          rewards={state.lastRewards}
+          totalSpins={state.totalSpins}
         />
 
         <SpinBar
@@ -291,8 +418,19 @@ function PlayPage() {
           <div className="pool-grid">
             {poolCounts(state.pool).map(([id, count]) => {
               const def = SYMBOLS[id];
+              const isHi = highlightedMembers.includes(id);
+              const open = tooltip && tooltip.kind === "pool" && tooltip.id === id;
               return (
-                <div key={id} className="pool-grid-chip" title={def.description}>
+                <div
+                  key={id}
+                  className={`pool-grid-chip ${isHi ? "cell-grouped" : ""} ${open ? "tip-open" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTooltip((cur) =>
+                      cur && cur.kind === "pool" && cur.id === id ? null : { kind: "pool", id },
+                    );
+                  }}
+                >
                   {def.sprite ? (
                     <img src={def.sprite} alt={def.name} className="pixelart" />
                   ) : (
@@ -300,11 +438,23 @@ function PlayPage() {
                   )}
                   <span className="pool-grid-count">×{count}</span>
                   <span className="pool-grid-name">{def.name}</span>
+                  {open && (
+                    <SymbolTooltip
+                      id={id}
+                      onChipClick={onTooltipChip}
+                      highlightGroup={highlightGroup}
+                      extra={
+                        id === "acorn"
+                          ? `Transforms in ${Math.max(0, 5 - (minAgeById["acorn"] ?? 0))} more spin(s)`
+                          : null
+                      }
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
-          <button className="primary-btn" onClick={() => setPoolOpen(false)}>Close</button>
+          <button className="primary-btn" onClick={() => { setPoolOpen(false); setTooltip(null); }}>Close</button>
         </Overlay>
       )}
 
@@ -324,6 +474,34 @@ function PlayPage() {
         </Overlay>
       )}
 
+      {state.phase.kind === "green-man-upgrade" && (
+        <Overlay>
+          <h2 className="overlay-title">The Green Man stirs</h2>
+          <p className="overlay-sub">
+            Roots reach into your bag and lift {state.phase.from.length} common
+            tile{state.phase.from.length === 1 ? "" : "s"} into stronger forms.
+          </p>
+          <div className="upgrade-list">
+            {state.phase.from.map((from, i) => {
+              const to = state.phase.kind === "green-man-upgrade" ? state.phase.to[i] : from;
+              const f = SYMBOLS[from], t = SYMBOLS[to];
+              return (
+                <div key={i} className="upgrade-row">
+                  <span className="upgrade-emoji">{f.emoji}</span>
+                  <span className="upgrade-name">{f.name}</span>
+                  <span className="upgrade-arrow">→</span>
+                  <span className="upgrade-emoji">{t.emoji}</span>
+                  <span className="upgrade-name">{t.name}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button className="primary-btn" onClick={() => dispatch({ type: "ACK_GREEN_MAN" })}>
+            Continue
+          </button>
+        </Overlay>
+      )}
+
       {state.phase.kind === "draft" && (
         <Overlay>
           <h2 className="overlay-title">Add a symbol?</h2>
@@ -335,6 +513,7 @@ function PlayPage() {
           <div className="draft-grid">
             {state.phase.offers.map((id) => {
               const def = SYMBOLS[id];
+              const groups = groupsForSymbol(id);
               return (
                 <button
                   key={id}
@@ -348,6 +527,13 @@ function PlayPage() {
                   )}
                   <div className="draft-name">{def.name}</div>
                   <div className="draft-desc">{def.description}</div>
+                  {groups.length > 0 && (
+                    <div className="draft-groups">
+                      {groups.map((g) => (
+                        <span key={g} className="group-chip-mini">{SYNERGY_GROUPS[g].name}</span>
+                      ))}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -387,6 +573,7 @@ function PlayPage() {
         state.phase.kind !== "win" &&
         state.phase.kind !== "tithe-passed" &&
         state.phase.kind !== "draft" &&
+        state.phase.kind !== "green-man-upgrade" &&
         state.embers === 0 &&
         state.orbs < titheRequired && (
           <Overlay>
@@ -442,21 +629,41 @@ function Stat(props: { icon: React.ReactNode; value: number; label: string }) {
 }
 
 function SlotFrame(props: {
-  grid: (SymbolId | null)[];
+  grid: (PoolTile | null)[];
   contributing: Set<number>;
   spinning: boolean;
+  highlightedMembers: SymbolId[];
+  highlightGroup: SynergyGroupId | null;
+  openTooltipCell: number | null;
+  onCellClick: (idx: number, hasSymbol: boolean) => void;
+  onChipClick: (g: SynergyGroupId) => void;
+  acornCountdown: number;
 }) {
   return (
     <div className="slot-frame">
       <div className="slot-grid">
-        {props.grid.map((id, i) => {
-          if (id == null) {
-            return <div key={i} className="cell cell-empty" aria-hidden />;
+        {props.grid.map((tile, i) => {
+          if (tile == null) {
+            return (
+              <div
+                key={i}
+                className="cell cell-empty"
+                onClick={(e) => { e.stopPropagation(); props.onCellClick(i, false); }}
+                aria-hidden
+              />
+            );
           }
+          const id = tile.id;
           const def = SYMBOLS[id];
           const isHot = props.contributing.has(i) && !props.spinning;
+          const isHi = props.highlightedMembers.includes(id);
+          const isOpen = props.openTooltipCell === i && !props.spinning;
           return (
-            <div key={i} className={`cell ${isHot ? "cell-hot" : ""}`}>
+            <div
+              key={i}
+              className={`cell ${isHot ? "cell-hot" : ""} ${isHi ? "cell-grouped" : ""}`}
+              onClick={(e) => { e.stopPropagation(); props.onCellClick(i, true); }}
+            >
               {def.sprite ? (
                 <img
                   key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
@@ -476,6 +683,20 @@ function SlotFrame(props: {
                   {def.emoji}
                 </span>
               )}
+              {isOpen && (
+                <SymbolTooltip
+                  id={id}
+                  onChipClick={props.onChipClick}
+                  highlightGroup={props.highlightGroup}
+                  extra={
+                    id === "acorn"
+                      ? props.acornCountdown === 0
+                        ? "Transforms next spin"
+                        : `Transforms in ${props.acornCountdown} more spin(s)`
+                      : null
+                  }
+                />
+              )}
             </div>
           );
         })}
@@ -490,7 +711,7 @@ function SpinBar(props: {
   onSpin: () => void;
   spinning: boolean;
   floatScore: { value: number; key: number } | null;
-  pool: SymbolId[];
+  pool: PoolTile[];
   onViewPool: () => void;
 }) {
   return (
@@ -525,5 +746,145 @@ function Overlay(props: { children: React.ReactNode }) {
     <div className="overlay animate-fade-in">
       <div className="overlay-card">{props.children}</div>
     </div>
+  );
+}
+
+// -------- Symbol tooltip --------------------------------------------------
+
+function SymbolTooltip(props: {
+  id: SymbolId;
+  onChipClick: (g: SynergyGroupId) => void;
+  highlightGroup: SynergyGroupId | null;
+  extra: string | null;
+}) {
+  const def = SYMBOLS[props.id];
+  const groups = groupsForSymbol(props.id);
+  return (
+    <div className="symbol-tip" onClick={(e) => e.stopPropagation()}>
+      <div className="symbol-tip-head">
+        <span className="symbol-tip-emoji">{def.emoji}</span>
+        <div className="symbol-tip-headtext">
+          <div className="symbol-tip-name">{def.name}</div>
+          <div className={`symbol-tip-rarity rarity-${def.rarity}`}>
+            {def.rarity.replace("_", " ")}
+          </div>
+        </div>
+      </div>
+      <div className="symbol-tip-base">Base: +{def.baseValue} ◐</div>
+      <div className="symbol-tip-desc">{def.description}</div>
+      {props.extra && <div className="symbol-tip-extra">⏳ {props.extra}</div>}
+      {groups.length > 0 && (
+        <div className="symbol-tip-groups">
+          {groups.map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`group-chip ${props.highlightGroup === g ? "active" : ""}`}
+              onClick={(e) => { e.stopPropagation(); props.onChipClick(g); }}
+            >
+              {SYNERGY_GROUPS[g].name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------- Spin breakdown panel --------------------------------------------
+
+function SpinLog(props: {
+  events: SpinEvent[];
+  orbs: number;
+  rewards: { embers: number; bloomShards: number; moonTokens: number };
+  totalSpins: number;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { id: SymbolId; cell: number; entries: SpinEvent[]; subtotal: number }>();
+    for (const ev of props.events) {
+      const id = ev.kind === "transform" ? ev.from : ev.id;
+      const key = `${ev.cell}-${id}`;
+      const cur = map.get(key) ?? { id, cell: ev.cell, entries: [], subtotal: 0 };
+      cur.entries.push(ev);
+      if (ev.kind === "base") cur.subtotal += ev.orbs;
+      else if (ev.kind === "synergy" && ev.orbsDelta) cur.subtotal += ev.orbsDelta;
+      map.set(key, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal);
+  }, [props.events]);
+
+  return (
+    <section className={`spin-log ${open ? "" : "collapsed"}`}>
+      <button type="button" className="spin-log-head" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
+        <span className="spin-log-title">
+          {props.totalSpins === 0 ? "Spin to begin — synergies will appear here" : `Last spin: +${props.orbs} ◐`}
+        </span>
+        <span className="spin-log-rewards">
+          {props.rewards.bloomShards > 0 && <span>+{props.rewards.bloomShards} ◆</span>}
+          {props.rewards.moonTokens > 0 && <span>+{props.rewards.moonTokens} ☾</span>}
+          {props.rewards.embers > 0 && <span>+{props.rewards.embers} 🔥</span>}
+        </span>
+        <span className="spin-log-toggle">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && groups.length > 0 && (
+        <div className="spin-log-body">
+          {groups.map((g) => {
+            const def = SYMBOLS[g.id];
+            return (
+              <div key={`${g.cell}-${g.id}`} className="spin-log-group">
+                <div className="spin-log-group-head">
+                  <span className="spin-log-group-emoji">{def.emoji}</span>
+                  <span className="spin-log-group-name">{def.name}</span>
+                  <span className="spin-log-group-sub">+{g.subtotal} ◐</span>
+                </div>
+                <ul className="spin-log-entries">
+                  {g.entries.map((ev, idx) => (
+                    <li key={idx} className="spin-log-entry">
+                      {ev.kind === "base" && (
+                        <>
+                          <span className="ev-tag tag-base">base</span>
+                          <span className="ev-text">+{ev.orbs} ◐</span>
+                        </>
+                      )}
+                      {ev.kind === "synergy" && (
+                        <>
+                          <span className={`ev-tag ${ev.greenManBoost ? "tag-green" : "tag-syn"}`}>
+                            {ev.greenManBoost ? "Green Man" : ev.synergyType}
+                          </span>
+                          <span className="ev-text">
+                            {ev.description}
+                            {ev.orbsDelta != null && <b> · +{ev.orbsDelta} ◐</b>}
+                            {ev.multiplier != null && <b> · ×{ev.multiplier}</b>}
+                            {ev.rewardKind && (
+                              <b>
+                                {" · +"}{ev.rewardAmount}{" "}
+                                {ev.rewardKind === "bloom_shard" ? "◆"
+                                  : ev.rewardKind === "moon_token" ? "☾"
+                                  : ev.rewardKind === "embers" ? "🔥"
+                                  : "◐"}
+                              </b>
+                            )}
+                          </span>
+                        </>
+                      )}
+                      {ev.kind === "transform" && (
+                        <>
+                          <span className="ev-tag tag-transform">transform</span>
+                          <span className="ev-text">
+                            {SYMBOLS[ev.from].name} → {SYMBOLS[ev.to].name}
+                          </span>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

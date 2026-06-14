@@ -649,6 +649,7 @@ const PANEL_TITHE = {
   width: 541,
   height: 156,
 };
+const SHOW_GRID_DEBUG = false; // flip to true to re-check alignment
 
 function seasonForRound(round: number): string {
   if (round <= 3) return "Spring";
@@ -808,7 +809,7 @@ function SlotFrame(props: {
           <div key={i} className="panel-cell" />
         ))}
       </div>
-      {import.meta.env.DEV && (
+      {SHOW_GRID_DEBUG && import.meta.env.DEV && (
         <div
           className="slot-grid-dev-overlay"
           style={{

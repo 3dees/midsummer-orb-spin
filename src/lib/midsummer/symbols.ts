@@ -59,20 +59,22 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
 };
 
 // The starting pool is a MULTISET: duplicates increase a symbol's appearance
-// odds. rollGrid() samples this array with replacement, so two Fireflies and
-// two Ferns means early grids are mostly Fireflies and Ferns.
+// odds. rollGrid() samples this array with replacement. The starting pool is
+// intentionally TINY (5 symbols) so the early grid is repetitive and the
+// player feels every draft pick meaningfully reshape the machine.
 export const STARTING_POOL: SymbolId[] = [
   "firefly",
   "firefly",
   "fern",
   "fern",
   "mushroom",
+];
+
+// Everything else is earned through post-spin drafts.
+export const DRAFT_POOL: SymbolId[] = [
   "fox",
   "lantern",
   "dandelion",
-];
-
-export const DRAFT_POOL: SymbolId[] = [
   "moth",
   "clover",
   "rabbit",

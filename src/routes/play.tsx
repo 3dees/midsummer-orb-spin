@@ -700,6 +700,10 @@ function SlotFrame(props: {
       const rect = cabinetImage.getBoundingClientRect();
       if (rect.width <= 0) return;
       const scale = rect.width / CABINET_SOURCE_W;
+      const scaleY = rect.height / CABINET_SOURCE_H;
+      if (import.meta.env.DEV && Math.abs(scale - scaleY) > 0.01) {
+        console.warn("[SlotFrame] cabinet aspect scale mismatch", { scaleX: scale, scaleY });
+      }
       const backdropW = PANEL_BACKDROP.width * scale;
       const backdropH = PANEL_BACKDROP.height * scale;
       const backdropLeft = PANEL_BACKDROP.left * scale;

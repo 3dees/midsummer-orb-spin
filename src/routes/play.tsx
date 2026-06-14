@@ -84,7 +84,7 @@ function initialState(): GameState {
     bloomShards: 0,
     moonTokens: 0,
     pool,
-    grid: rollGrid(pool),
+    grid: new Array(GRID_SIZE).fill(null),
     spinInCycle: 0,
     titheRound: 0,
     totalSpins: 0,

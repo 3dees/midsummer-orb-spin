@@ -249,11 +249,13 @@
 
 .slot-grid {
   position: absolute;
-  /* Calibrated to the inner panel of cabinet.png (1024x1536). */
-  top: 17%;
-  bottom: 32%;
-  left: 19%;
-  right: 19%;
+  /* Centered on the cabinet's inner panel center (≈ 50%, 47.5%).
+     Width matches drawn panel; height derives from 5:4 to keep cells perfectly square. */
+  left: 50%;
+  top: 47.5%;
+  transform: translate(-50%, -50%);
+  width: 54%;
+  aspect-ratio: 5 / 4;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(4, 1fr);
@@ -262,6 +264,7 @@
   background: transparent;
   border: none;
 }
+.slot-grid .cell { aspect-ratio: 1 / 1; }
 
 .cell {
   position: relative;

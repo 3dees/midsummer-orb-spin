@@ -650,17 +650,27 @@ function SlotFrame(props: {
 
     const recompute = () => {
       const dpr = window.devicePixelRatio || 1;
-      // Inner panel is ~54% of the cabinet width. Snap to whole device
-      // pixels so 5 cells fit exactly with no fractional row/column.
-      const innerWidth = frame.clientWidth * 0.54;
-      const cellDevicePx = Math.max(8, Math.floor((innerWidth * dpr) / 5));
+      // Cabinet's painted inner panel measures ~73.75% wide × ~53.1% tall
+      // of the cabinet image. Fit a 5:4 grid of square cells inside that
+      // rectangle, choosing whichever axis is the binding constraint, then
+      // snap to whole device pixels so columns/rows align exactly.
+      const frameW = frame.clientWidth;
+      const frameH = frame.clientHeight;
+      const innerW = frameW * 0.7375;
+      const innerH = frameH * 0.531;
+      const gapDevicePx = Math.max(1, Math.round(2 * dpr));
+      const cellByW = Math.floor((innerW * dpr - gapDevicePx * 4) / 5);
+      const cellByH = Math.floor((innerH * dpr - gapDevicePx * 3) / 4);
+      const cellDevicePx = Math.max(8, Math.min(cellByW, cellByH));
       const cellPx = cellDevicePx / dpr;
+      const gapPx = gapDevicePx / dpr;
       // Sprite design is 64x64 — snap displayed size to whole device pixels
       // so nearest-neighbour upscale never lands on half-pixel boundaries.
       const spriteDevicePx = Math.max(8, Math.floor(cellDevicePx * 0.78));
       const spritePx = spriteDevicePx / dpr;
       grid.style.setProperty("--cell-px", `${cellPx}px`);
       grid.style.setProperty("--sprite-px", `${spritePx}px`);
+      grid.style.setProperty("--gap-px", `${gapPx}px`);
     };
 
     recompute();

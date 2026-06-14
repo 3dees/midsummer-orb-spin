@@ -250,19 +250,20 @@
 .slot-grid {
   position: absolute;
   left: 50%;
-  top: 47.5%;
+  top: 50%;
   transform: translate(-50%, -50%);
   /* JS computes --cell-px snapped to whole device pixels so every cell is an
-     exact integer-square. Falls back to a sane size before mount. */
+     exact integer-square. The grid is sized to fit the cabinet's painted
+     inner panel (≈74% wide × ≈53% tall of the frame) while preserving 5:4. */
   --cell-px: 48px;
   --sprite-px: 38px;
+  --gap-px: 2px;
   width: calc(var(--cell-px) * 5);
   height: calc(var(--cell-px) * 4);
-  max-width: 54%;
   display: grid;
   grid-template-columns: repeat(5, var(--cell-px));
   grid-template-rows: repeat(4, var(--cell-px));
-  gap: 0;
+  gap: var(--gap-px);
   padding: 0;
   background: transparent;
   border: none;
@@ -270,6 +271,7 @@
 .slot-grid .cell {
   width: var(--cell-px);
   height: var(--cell-px);
+  aspect-ratio: 1 / 1;
 }
 
 .cell {

@@ -275,6 +275,12 @@ function PlayPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
   const [poolOpen, setPoolOpen] = useState(false);
+  const [tooltip, setTooltip] = useState<
+    | { kind: "cell"; index: number }
+    | { kind: "pool"; id: SymbolId }
+    | null
+  >(null);
+  const [highlightGroup, setHighlightGroup] = useState<SynergyGroupId | null>(null);
 
   // After BEGIN_SPIN, settle the spin after a short animation window.
   useEffect(() => {
@@ -299,11 +305,40 @@ function PlayPage() {
   const canSpin = state.embers > 0 && state.phase.kind === "idle";
 
   const onSpin = useCallback(() => {
+    setTooltip(null);
     dispatch({ type: "BEGIN_SPIN" });
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setTooltip(null);
+        setHighlightGroup(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Min age across all instances per id (for Acorn countdown tooltip).
+  const minAgeById = useMemo(() => {
+    const m: Partial<Record<SymbolId, number>> = {};
+    for (const t of state.pool) {
+      const cur = m[t.id];
+      m[t.id] = cur == null ? t.age : Math.min(cur, t.age);
+    }
+    return m;
+  }, [state.pool]);
+
+  const onTooltipChip = (g: SynergyGroupId) => {
+    setHighlightGroup((cur) => (cur === g ? null : g));
+  };
+  const highlightedMembers: SymbolId[] = highlightGroup
+    ? [...SYNERGY_GROUPS[highlightGroup].members]
+    : [];
+
   return (
-    <div className="midsummer-root">
+    <div className="midsummer-root" onClick={() => setTooltip(null)}>
       {/* Forest backdrop */}
       <div
         className="midsummer-bg"
@@ -312,7 +347,7 @@ function PlayPage() {
       />
       <div className="midsummer-vignette" aria-hidden />
 
-      <main className="midsummer-stage">
+      <main className="midsummer-stage" onClick={(e) => e.stopPropagation()}>
         <Header
           embers={state.embers}
           orbs={state.orbs}
@@ -329,10 +364,36 @@ function PlayPage() {
           </div>
         )}
 
+        {highlightGroup && (
+          <button className="group-banner" onClick={() => setHighlightGroup(null)}>
+            <span className="group-banner-dot" /> Highlighting{" "}
+            <b>{SYNERGY_GROUPS[highlightGroup].name}</b>
+            <span className="group-banner-close">×</span>
+          </button>
+        )}
+
         <SlotFrame
           grid={state.grid}
           contributing={state.contributingCells}
           spinning={state.phase.kind === "spinning"}
+          highlightedMembers={highlightedMembers}
+          highlightGroup={highlightGroup}
+          openTooltipCell={tooltip && tooltip.kind === "cell" ? tooltip.index : null}
+          onCellClick={(idx, hasSymbol) => {
+            if (!hasSymbol) { setTooltip(null); return; }
+            setTooltip((cur) =>
+              cur && cur.kind === "cell" && cur.index === idx ? null : { kind: "cell", index: idx },
+            );
+          }}
+          onChipClick={onTooltipChip}
+          acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
+        />
+
+        <SpinLog
+          events={state.lastEvents}
+          orbs={state.lastScore}
+          rewards={state.lastRewards}
+          totalSpins={state.totalSpins}
         />
 
         <SpinBar
@@ -357,8 +418,19 @@ function PlayPage() {
           <div className="pool-grid">
             {poolCounts(state.pool).map(([id, count]) => {
               const def = SYMBOLS[id];
+              const isHi = highlightedMembers.includes(id);
+              const open = tooltip && tooltip.kind === "pool" && tooltip.id === id;
               return (
-                <div key={id} className="pool-grid-chip" title={def.description}>
+                <div
+                  key={id}
+                  className={`pool-grid-chip ${isHi ? "cell-grouped" : ""} ${open ? "tip-open" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTooltip((cur) =>
+                      cur && cur.kind === "pool" && cur.id === id ? null : { kind: "pool", id },
+                    );
+                  }}
+                >
                   {def.sprite ? (
                     <img src={def.sprite} alt={def.name} className="pixelart" />
                   ) : (
@@ -366,11 +438,23 @@ function PlayPage() {
                   )}
                   <span className="pool-grid-count">×{count}</span>
                   <span className="pool-grid-name">{def.name}</span>
+                  {open && (
+                    <SymbolTooltip
+                      id={id}
+                      onChipClick={onTooltipChip}
+                      highlightGroup={highlightGroup}
+                      extra={
+                        id === "acorn"
+                          ? `Transforms in ${Math.max(0, 5 - (minAgeById["acorn"] ?? 0))} more spin(s)`
+                          : null
+                      }
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
-          <button className="primary-btn" onClick={() => setPoolOpen(false)}>Close</button>
+          <button className="primary-btn" onClick={() => { setPoolOpen(false); setTooltip(null); }}>Close</button>
         </Overlay>
       )}
 

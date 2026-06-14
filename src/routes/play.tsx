@@ -21,6 +21,7 @@ import {
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
   pickDraft,
+  poolCounts,
   rollGrid,
   scoreGrid,
 } from "@/lib/midsummer/engine";
@@ -160,9 +161,16 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "PICK_DRAFT": {
       if (state.phase.kind !== "draft") return state;
+      // Add the new symbol instance to the pool permanently AND immediately
+      // re-roll the grid so the player can see it placed before their next
+      // spin. Future versions will let the player spend tokens here to
+      // remove symbols from their pool before committing the spin.
+      const nextPool = [...state.pool, action.id];
       return {
         ...state,
-        pool: [...state.pool, action.id],
+        pool: nextPool,
+        grid: rollGrid(nextPool),
+        contributingCells: new Set(),
         phase: { kind: "idle" },
       };
     }
@@ -182,6 +190,7 @@ function reducer(state: GameState, action: Action): GameState {
 function PlayPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
+  const [poolOpen, setPoolOpen] = useState(false);
 
   // After BEGIN_SPIN, settle the spin after a short animation window.
   useEffect(() => {
@@ -248,10 +257,34 @@ function PlayPage() {
           spinning={state.phase.kind === "spinning"}
           floatScore={floatScore}
           pool={state.pool}
+          onViewPool={() => setPoolOpen(true)}
         />
       </main>
 
       {/* Overlays */}
+      {poolOpen && (
+        <Overlay>
+          <h2 className="overlay-title">Your symbol pool</h2>
+          <p className="overlay-sub">
+            {state.pool.length} symbol{state.pool.length === 1 ? "" : "s"} in your bag.
+            One of each lands on the grid every spin.
+          </p>
+          <div className="pool-grid">
+            {poolCounts(state.pool).map(([id, count]) => {
+              const def = SYMBOLS[id];
+              return (
+                <div key={id} className="pool-grid-chip" title={def.description}>
+                  <img src={def.sprite} alt={def.name} className="pixelart" />
+                  <span className="pool-grid-count">×{count}</span>
+                  <span className="pool-grid-name">{def.name}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button className="primary-btn" onClick={() => setPoolOpen(false)}>Close</button>
+        </Overlay>
+      )}
+
       {state.phase.kind === "tithe-passed" && (
         <Overlay>
           <h2 className="overlay-title">Tithe paid</h2>
@@ -417,9 +450,13 @@ function SpinBar(props: {
   spinning: boolean;
   floatScore: { value: number; key: number } | null;
   pool: SymbolId[];
+  onViewPool: () => void;
 }) {
   return (
     <div className="spin-bar">
+      <button className="view-pool-btn" onClick={props.onViewPool}>
+        View pool ({props.pool.length})
+      </button>
       <div className="spin-button-wrap">
         {props.floatScore && (
           <div key={props.floatScore.key} className="float-score">

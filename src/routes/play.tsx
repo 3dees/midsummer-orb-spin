@@ -633,15 +633,15 @@ const CABINET_SOURCE_W = 1024;
 const CABINET_SOURCE_H = 1536;
 const PANEL_GRID = {
   left: 232,
-  top: 501,
+  top: 502,
   cell: 108,
   gap: 5,
 };
 const PANEL_BACKDROP = {
-  left: 222,
-  top: 398,
-  width: 580,
-  height: 650,
+  left: 228,
+  top: 421,
+  width: 568,
+  height: 608,
 };
 const PANEL_GRID_W = PANEL_GRID.cell * 5 + PANEL_GRID.gap * 4;
 const PANEL_GRID_H = PANEL_GRID.cell * 4 + PANEL_GRID.gap * 3;

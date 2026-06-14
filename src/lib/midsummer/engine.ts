@@ -22,23 +22,28 @@ export interface ScoreResult {
 }
 
 /**
- * Fill the grid with random picks from the player's pool. The grid always has
- * GRID_SIZE cells, but only `min(pool.length, GRID_SIZE)` of them are filled
- * — the rest are `null` (empty / inert). Each filled cell's position is
- * chosen uniformly at random; the symbol in that cell is sampled with
- * replacement from the pool.
+ * Place the player's exact pool of symbol instances onto the grid. The pool is
+ * a physical bag of tiles, not a list of symbol types to sample from: every
+ * owned instance appears once per spin, in a random empty cell. The remaining
+ * cells stay `null` (empty / inert).
  */
 export function rollGrid(pool: SymbolId[]): (SymbolId | null)[] {
   const grid: (SymbolId | null)[] = new Array(GRID_SIZE).fill(null);
-  const fillCount = Math.min(pool.length, GRID_SIZE);
-  // Reservoir-style: shuffle indexes 0..GRID_SIZE-1 and take the first N.
   const indexes = Array.from({ length: GRID_SIZE }, (_, i) => i);
   for (let i = indexes.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
   }
+
+  const tiles = [...pool];
+  for (let i = tiles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+  }
+
+  const fillCount = Math.min(tiles.length, GRID_SIZE);
   for (let k = 0; k < fillCount; k++) {
-    grid[indexes[k]] = pool[Math.floor(Math.random() * pool.length)];
+    grid[indexes[k]] = tiles[k];
   }
   return grid;
 }

@@ -5,11 +5,12 @@ Make the grid feel like it grows with the player. Early on it's mostly empty woo
 ## Rules
 
 - Filled cells = `pool.length`, capped at `GRID_SIZE` (20).
-- Each spin, pick `pool.length` random distinct cell indexes from the 20 and fill them; the rest render as empty (dark) cells.
+- The pool is an exact set of symbol instances, like physical tiles in a bag — not a list of symbol types to sample from.
+- Each spin, shuffle the exact player pool, pick random distinct cell indexes from the 20, and place every owned instance once; the rest render as empty (dark) cells.
 - Starting pool shrinks from 8 → **5 symbols**, biased toward Fireflies so the first plays feel cheap and gentle:
   `[firefly, firefly, firefly, fern, mushroom]`
   → opens with 5 filled cells out of 20.
-- After each draft pick, pool grows by 1 → one more cell lights up on the next spin. After ~15 drafts the grid is fully lit.
+- After each draft pick, that exact new symbol instance is permanently added to the pool and appears once on every future spin. After ~15 drafts the grid is fully lit.
 - Skipping a draft does not grow the grid — the tension of "do I add this?" now also means "do I add another lit cell?".
 
 ## Scoring
@@ -26,7 +27,7 @@ Make the grid feel like it grows with the player. Early on it's mostly empty woo
 ## Files touched
 
 - `src/lib/midsummer/symbols.ts` — `STARTING_POOL` becomes `[firefly, firefly, firefly, fern, mushroom]`.
-- `src/lib/midsummer/engine.ts` — `rollGrid(pool)` now returns `(SymbolId | null)[]` of length 20 with `pool.length` random filled indexes; `scoreGrid` treats nulls as inert.
+- `src/lib/midsummer/engine.ts` — `rollGrid(pool)` now returns `(SymbolId | null)[]` of length 20 by placing every exact pool instance once into random filled indexes; `scoreGrid` treats nulls as inert.
 - `src/routes/play.tsx` — `GameState.grid` typed as `(SymbolId | null)[]`; `SlotFrame` renders empty cells for null; remove `pool-strip` and `pool-hint` from `SpinBar`; drop the unused `poolCounts` import.
 - `src/styles.css` — add `.cell-empty` styling (dim inset, no sprite).
 

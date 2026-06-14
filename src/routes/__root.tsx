@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Midsummer Machine" },
+      { name: "description", content: "A roguelite slot builder where players strategically build a symbol collection to earn Light Orbs." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Midsummer Machine" },
+      { property: "og:description", content: "A roguelite slot builder where players strategically build a symbol collection to earn Light Orbs." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Midsummer Machine" },
+      { name: "twitter:description", content: "A roguelite slot builder where players strategically build a symbol collection to earn Light Orbs." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/602a4db1-4092-4bc3-aa5b-e6d2ad7595c4/id-preview-b26e95c4--5ce8d8e4-f6de-4dd2-a9ee-b2e7fe4499ce.lovable.app-1781447782104.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/602a4db1-4092-4bc3-aa5b-e6d2ad7595c4/id-preview-b26e95c4--5ce8d8e4-f6de-4dd2-a9ee-b2e7fe4499ce.lovable.app-1781447782104.png" },
     ],
     links: [
       {

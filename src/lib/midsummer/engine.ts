@@ -24,18 +24,18 @@ export interface TitheStep {
   orbs: number;
 }
 export const TITHE_SCHEDULE: TitheStep[] = [
-  { spins: 5, orbs: 25 },
-  { spins: 5, orbs: 50 },
-  { spins: 6, orbs: 100 },
-  { spins: 6, orbs: 150 },
-  { spins: 7, orbs: 225 },
-  { spins: 7, orbs: 300 },
-  { spins: 8, orbs: 375 },
-  { spins: 8, orbs: 450 },
-  { spins: 9, orbs: 575 },
-  { spins: 9, orbs: 650 },
-  { spins: 10, orbs: 700 },
-  { spins: 10, orbs: 777 },
+  { spins: 5, orbs: 35 },
+  { spins: 5, orbs: 70 },
+  { spins: 6, orbs: 135 },
+  { spins: 6, orbs: 205 },
+  { spins: 7, orbs: 305 },
+  { spins: 7, orbs: 405 },
+  { spins: 8, orbs: 505 },
+  { spins: 8, orbs: 610 },
+  { spins: 9, orbs: 775 },
+  { spins: 9, orbs: 880 },
+  { spins: 10, orbs: 945 },
+  { spins: 10, orbs: 1050 },
 ];
 
 /** A single physical tile in the player's bag — ages independently. */

@@ -382,6 +382,7 @@ function PlayPage() {
           orbs={state.orbs}
           titheRequirement={titheRequired}
           spinsTaken={state.spinInCycle}
+          spinsPerCycle={titheSpinCount}
         />
 
         <SpinLog
@@ -636,9 +637,9 @@ function TitheMeter(props: {
   orbs: number;
   requirement: number;
   spinsTaken: number;
-  spinsPerCycle?: number;
+  spinsPerCycle: number;
 }) {
-  const perCycle = props.spinsPerCycle ?? 8;
+  const perCycle = props.spinsPerCycle;
   const spinsLeft = Math.max(0, perCycle - props.spinsTaken);
   const pct = Math.min(100, (props.orbs / Math.max(1, props.requirement)) * 100);
   const met = props.orbs >= props.requirement;
@@ -678,6 +679,7 @@ function SlotFrame(props: {
   orbs: number;
   titheRequirement: number;
   spinsTaken: number;
+  spinsPerCycle: number;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const cabinetImageRef = useRef<HTMLImageElement | null>(null);
@@ -888,6 +890,7 @@ function SlotFrame(props: {
           orbs={props.orbs}
           requirement={props.titheRequirement}
           spinsTaken={props.spinsTaken}
+          spinsPerCycle={props.spinsPerCycle}
         />
       </div>
     </div>

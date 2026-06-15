@@ -115,6 +115,7 @@ function reducer(state: GameState, action: Action): GameState {
         lastScore: 0,
         lastEvents: [],
         lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
+        lastDraft: null,
         phase: { kind: "spinning" },
       };
     }

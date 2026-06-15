@@ -509,6 +509,7 @@ function PlayPage() {
             {state.phase.offers.map((id) => {
               const def = SYMBOLS[id];
               const groups = groupsForSymbol(id);
+              const rarityLabel = def.rarity === "very_rare" ? "Very Rare" : def.rarity.charAt(0).toUpperCase() + def.rarity.slice(1);
               return (
                 <button
                   key={id}
@@ -521,6 +522,7 @@ function PlayPage() {
                     <span className="draft-emoji" aria-hidden>{def.emoji}</span>
                   )}
                   <div className="draft-name">{def.name}</div>
+                  <div className={`draft-rarity rarity-${def.rarity}`}>{rarityLabel}</div>
                   <div className="draft-desc">{def.description}</div>
                   {groups.length > 0 && (
                     <div className="draft-groups">

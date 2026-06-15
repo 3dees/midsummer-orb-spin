@@ -405,8 +405,37 @@ export function scoreGrid(
 }
 
 export function pickDraft(candidates: SymbolId[]): SymbolId[] {
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  const byRarity: Record<string, SymbolId[]> = { common: [], uncommon: [], rare: [] };
+  for (const id of candidates) {
+    const r = SYMBOLS[id].rarity;
+    if (byRarity[r]) byRarity[r].push(id);
+  }
+
+  const picked = new Set<SymbolId>();
+  const result: SymbolId[] = [];
+
+  while (result.length < 3) {
+    const roll = Math.random();
+    let rarity: string;
+    if (roll < 0.60) rarity = "common";
+    else if (roll < 0.85) rarity = "uncommon";
+    else rarity = "rare";
+
+    const pool = byRarity[rarity].filter((id) => !picked.has(id));
+    if (pool.length === 0) {
+      const fallback = candidates.filter((id) => !picked.has(id));
+      if (fallback.length === 0) break;
+      const id = fallback[Math.floor(Math.random() * fallback.length)];
+      picked.add(id);
+      result.push(id);
+    } else {
+      const id = pool[Math.floor(Math.random() * pool.length)];
+      picked.add(id);
+      result.push(id);
+    }
+  }
+
+  return result;
 }
 
 export function poolCounts(pool: PoolTile[]): Array<[SymbolId, number]> {

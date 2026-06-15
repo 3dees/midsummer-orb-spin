@@ -636,9 +636,9 @@ function TitheMeter(props: {
   orbs: number;
   requirement: number;
   spinsTaken: number;
-  spinsPerCycle?: number;
+  spinsPerCycle: number;
 }) {
-  const perCycle = props.spinsPerCycle ?? 8;
+  const perCycle = props.spinsPerCycle;
   const spinsLeft = Math.max(0, perCycle - props.spinsTaken);
   const pct = Math.min(100, (props.orbs / Math.max(1, props.requirement)) * 100);
   const met = props.orbs >= props.requirement;

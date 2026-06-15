@@ -18,9 +18,7 @@ export const GRID_COLS = 5;
 export const GRID_ROWS = 4;
 export const GRID_SIZE = GRID_COLS * GRID_ROWS;
 
-export const START_EMBERS = 10;
 export const TITHE_INTERVAL = 8;
-export const EMBERS_PER_TITHE = 5;
 export const TITHE_REQUIREMENTS = [20, 35, 50];
 
 /** A single physical tile in the player's bag — ages independently. */
@@ -63,9 +61,8 @@ export type SpinEvent =
 
 export interface ScoreResult {
   orbs: number;
-  embersGained: number;
-  bloomShardsGained: number;
-  moonTokensGained: number;
+  rerollOrbsGained: number;
+  removalOrbsGained: number;
   perCell: number[];
   contributingCells: Set<number>;
   appearanceCountsNext: Record<string, number>;
@@ -133,9 +130,8 @@ export function scoreGrid(
 
   const rewards: Record<Reward, number> = {
     light_orbs: 0,
-    embers: 0,
-    bloom_shard: 0,
-    moon_token: 0,
+    reroll_orb: 0,
+    removal_orb: 0,
   };
 
   // Dedupe one-shot global rewards: if many tiles of the same id share the
@@ -313,6 +309,17 @@ export function scoreGrid(
           }
           break;
         }
+        case "roundPenalty": {
+          // Used by Sunbeam: halves value on odd rounds.
+          const isOdd = ctx.roundNumber % 2 === 1;
+          const match = syn.roundType === "odd" ? isOdd : !isOdd;
+          if (match) {
+            multCell[i] *= syn.multiplier;
+            contributing.add(i);
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, multiplier: syn.multiplier });
+          }
+          break;
+        }
         case "spinCounter": {
           perCell[i] += syn.bonus * ctx.totalSpins;
           if (ctx.totalSpins > 0) {
@@ -332,7 +339,7 @@ export function scoreGrid(
           }
           break;
         }
-        // v2 placeholders.
+        // v2 placeholders — data preserved for tooltips, not yet executed.
         case "transform":
         case "destroyAdjacent":
         case "destroyBonus":
@@ -344,6 +351,7 @@ export function scoreGrid(
         case "transformCommon":
         case "titheReduction":
         case "exactTitheBonus":
+        case "stealAdjacent":
         case "passive":
         case "note":
           break;
@@ -370,9 +378,8 @@ export function scoreGrid(
 
   return {
     orbs,
-    embersGained: rewards.embers,
-    bloomShardsGained: rewards.bloom_shard,
-    moonTokensGained: rewards.moon_token,
+    rerollOrbsGained: rewards.reroll_orb,
+    removalOrbsGained: rewards.removal_orb,
     perCell,
     contributingCells: contributing,
     appearanceCountsNext,

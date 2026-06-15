@@ -844,6 +844,48 @@ img.cabinet-frame {
   transition: background 0.15s ease;
 }
 .spin-log-copy:hover { background: rgba(255,200,120,0.25); }
+
+.spin-log-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #e8dfc8;
+}
+.spin-log-draft-label {
+  font-weight: 700;
+  color: #ffe7a8;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.spin-log-draft-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.spin-log-draft-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(180,160,120,0.15);
+  border: 1px solid rgba(180,160,120,0.3);
+  font-size: 11px;
+  color: #d8d2b6;
+}
+.spin-log-draft-chip.picked {
+  background: rgba(120,220,160,0.18);
+  border-color: rgba(120,220,160,0.45);
+  color: #b8e8c8;
+}
+.spin-log-draft-result {
+  color: #cfc5a2;
+  font-style: italic;
+}
+
 .spin-log-group {
   background: rgba(0,0,0,0.35);
   border-radius: 8px;

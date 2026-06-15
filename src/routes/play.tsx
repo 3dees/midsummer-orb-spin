@@ -69,6 +69,7 @@ interface GameState {
   lastEvents: SpinEvent[];
   contributingCells: Set<number>;
   phase: Phase;
+  lastDraft: { offers: SymbolId[]; picked: SymbolId | null } | null;
 }
 
 function initialState(): GameState {
@@ -90,6 +91,7 @@ function initialState(): GameState {
     lastEvents: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
+    lastDraft: null,
   };
 }
 
@@ -113,6 +115,7 @@ function reducer(state: GameState, action: Action): GameState {
         lastScore: 0,
         lastEvents: [],
         lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
+        lastDraft: null,
         phase: { kind: "spinning" },
       };
     }
@@ -149,6 +152,7 @@ function reducer(state: GameState, action: Action): GameState {
       const nextOrbs = state.orbs + score.orbs;
       const nextRerollOrbs = state.rerollOrbs + score.rerollOrbsGained;
       const nextRemovalOrbs = state.removalOrbs + score.removalOrbsGained;
+      const draftOffers = pickDraft(DRAFT_POOL, state.titheRound);
 
       const base: GameState = {
         ...state,
@@ -169,7 +173,7 @@ function reducer(state: GameState, action: Action): GameState {
         alternatingTick: !state.alternatingTick,
         spinInCycle: nextSpin,
         // Default: every spin opens a draft offer immediately.
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound) },
+        phase: { kind: "draft", offers: draftOffers },
       };
 
       // Tithe check at the end of the current tithe's spin allotment.
@@ -196,18 +200,20 @@ function reducer(state: GameState, action: Action): GameState {
           },
         };
       }
-      return base;
+      return { ...base, lastDraft: { offers: draftOffers, picked: null } };
     }
     case "ACK_TITHE_PASS": {
       // Subtract the paid tithe cost (surplus carries over) and advance round.
       const paidStep = TITHE_SCHEDULE[state.titheRound];
       const remainingOrbs = Math.max(0, state.orbs - (paidStep?.orbs ?? 0));
+      const draftOffers = pickDraft(DRAFT_POOL, state.titheRound + 1);
       return {
         ...state,
         orbs: remainingOrbs,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound + 1) },
+        phase: { kind: "draft", offers: draftOffers },
+        lastDraft: { offers: draftOffers, picked: null },
       };
     }
     case "PICK_DRAFT": {
@@ -243,6 +249,7 @@ function reducer(state: GameState, action: Action): GameState {
         grid: rollGrid(nextPool),
         contributingCells: new Set(),
         phase: upgradePhase ?? { kind: "idle" },
+        lastDraft: state.lastDraft ? { ...state.lastDraft, picked: action.id } : null,
       };
     }
     case "ACK_GREEN_MAN": {
@@ -401,6 +408,7 @@ function PlayPage() {
           orbs={state.lastScore}
           rewards={state.lastRewards}
           totalSpins={state.totalSpins}
+          lastDraft={state.lastDraft}
         />
       </main>
 
@@ -986,6 +994,7 @@ function SpinLog(props: {
   orbs: number;
   rewards: { rerollOrbs: number; removalOrbs: number };
   totalSpins: number;
+  lastDraft: { offers: SymbolId[]; picked: SymbolId | null } | null;
 }) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -1010,6 +1019,16 @@ function SpinLog(props: {
     if (props.rewards.rerollOrbs > 0) text += ` | +${props.rewards.rerollOrbs} reroll`;
     if (props.rewards.removalOrbs > 0) text += ` | +${props.rewards.removalOrbs} removal`;
     text += "\n";
+    if (props.lastDraft) {
+      const offerNames = props.lastDraft.offers.map((id) => SYMBOLS[id].name);
+      text += `\nDraft: ${offerNames.join(", ")}`;
+      if (props.lastDraft.picked) {
+        text += ` → picked ${SYMBOLS[props.lastDraft.picked].name}`;
+      } else {
+        text += " → skipped";
+      }
+      text += "\n";
+    }
     for (const g of groups) {
       const def = SYMBOLS[g.id];
       text += `\n${def.name} +${g.subtotal} orbs\n`;
@@ -1031,7 +1050,7 @@ function SpinLog(props: {
       }
     }
     return text.trim();
-  }, [groups, props.orbs, props.rewards, props.totalSpins]);
+  }, [groups, props.orbs, props.rewards, props.totalSpins, props.lastDraft]);
 
   const onCopy = useCallback(async () => {
     try {
@@ -1055,13 +1074,30 @@ function SpinLog(props: {
         </span>
         <span className="spin-log-toggle">{open ? "▾" : "▸"}</span>
       </button>
-      {open && groups.length > 0 && (
+      {open && (groups.length > 0 || props.lastDraft) && (
         <div className="spin-log-body">
           <div className="spin-log-actions">
             <button type="button" className="spin-log-copy" onClick={(e) => { e.stopPropagation(); onCopy(); }}>
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
+          {props.lastDraft && (
+            <div className="spin-log-draft">
+              <span className="spin-log-draft-label">Draft</span>
+              <span className="spin-log-draft-choices">
+                {props.lastDraft.offers.map((id) => (
+                  <span key={id} className={`spin-log-draft-chip ${props.lastDraft!.picked === id ? "picked" : ""}`}>
+                    {SYMBOLS[id].emoji} {SYMBOLS[id].name}
+                  </span>
+                ))}
+              </span>
+              {props.lastDraft.picked ? (
+                <span className="spin-log-draft-result">→ picked {SYMBOLS[props.lastDraft.picked].name}</span>
+              ) : (
+                <span className="spin-log-draft-result">→ skipped</span>
+              )}
+            </div>
+          )}
           {groups.map((g) => {
             const def = SYMBOLS[g.id];
             return (

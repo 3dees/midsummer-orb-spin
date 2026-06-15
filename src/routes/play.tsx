@@ -574,8 +574,10 @@ function Header(props: {
   titheRequired: number;
   spinInCycle: number;
   titheRound: number;
+  titheSpinCount: number;
 }) {
-  const totalRounds = TITHE_REQUIREMENTS.length;
+  const totalRounds = TITHE_SCHEDULE.length;
+  const spinCount = props.titheSpinCount;
   return (
     <header className="hud">
       <div className="hud-row">
@@ -584,7 +586,7 @@ function Header(props: {
         <Stat icon={<span className="hud-removal">✕</span>} value={props.removalOrbs} label="Removal Orbs" />
       </div>
       <div className="hud-tithe">
-        <span>Spin {Math.min(props.spinInCycle + 1, TITHE_INTERVAL)} / {TITHE_INTERVAL}</span>
+        <span>Spin {Math.min(props.spinInCycle + 1, spinCount)} / {spinCount}</span>
         <span className="hud-dot">·</span>
         <span>
           Tithe {Math.min(props.titheRound + 1, totalRounds)}/{totalRounds}: {props.orbs}/{props.titheRequired}

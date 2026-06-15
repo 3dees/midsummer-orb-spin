@@ -678,6 +678,7 @@ function SlotFrame(props: {
   orbs: number;
   titheRequirement: number;
   spinsTaken: number;
+  spinsPerCycle: number;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const cabinetImageRef = useRef<HTMLImageElement | null>(null);
@@ -888,6 +889,7 @@ function SlotFrame(props: {
           orbs={props.orbs}
           requirement={props.titheRequirement}
           spinsTaken={props.spinsTaken}
+          spinsPerCycle={props.spinsPerCycle}
         />
       </div>
     </div>

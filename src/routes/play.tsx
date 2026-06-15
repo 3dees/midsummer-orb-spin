@@ -79,7 +79,7 @@ function initialState(): GameState {
     rerollOrbs: 0,
     removalOrbs: 0,
     pool,
-    grid: new Array(GRID_SIZE).fill(null),
+    grid: rollGrid(pool),
     spinInCycle: 0,
     titheRound: 0,
     totalSpins: 0,

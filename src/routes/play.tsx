@@ -382,6 +382,7 @@ function PlayPage() {
           orbs={state.orbs}
           titheRequirement={titheRequired}
           spinsTaken={state.spinInCycle}
+          spinsPerCycle={titheSpinCount}
         />
 
         <SpinLog

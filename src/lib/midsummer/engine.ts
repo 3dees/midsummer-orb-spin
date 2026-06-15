@@ -411,18 +411,17 @@ export function pickDraft(candidates: SymbolId[], titheIndex: number): SymbolId[
     if (byRarity[r]) byRarity[r].push(id);
   }
 
-  // Season-based rarity weights by tithe index
-  let commonChance: number;
-  let uncommonChance: number;
-  let rareChance: number;
+  // Season-based rarity thresholds by tithe index
+  let commonThreshold: number;
+  let uncommonThreshold: number;
   if (titheIndex <= 2) {
-    commonChance = 0.65; uncommonChance = 0.35; rareChance = 0.0;
+    commonThreshold = 0.65; uncommonThreshold = 1.0;
   } else if (titheIndex <= 5) {
-    commonChance = 0.60; uncommonChance = 0.28; rareChance = 0.06;
+    commonThreshold = 0.64; uncommonThreshold = 0.94;
   } else if (titheIndex <= 8) {
-    commonChance = 0.55; uncommonChance = 0.28; rareChance = 0.14;
+    commonThreshold = 0.57; uncommonThreshold = 0.86;
   } else {
-    commonChance = 0.50; uncommonChance = 0.28; rareChance = 0.20;
+    commonThreshold = 0.51; uncommonThreshold = 0.80;
   }
 
   const picked = new Set<SymbolId>();
@@ -431,8 +430,8 @@ export function pickDraft(candidates: SymbolId[], titheIndex: number): SymbolId[
   while (result.length < 3) {
     const roll = Math.random();
     let rarity: string;
-    if (roll < commonChance) rarity = "common";
-    else if (roll < commonChance + uncommonChance) rarity = "uncommon";
+    if (roll < commonThreshold) rarity = "common";
+    else if (roll < uncommonThreshold) rarity = "uncommon";
     else rarity = "rare";
 
     const pool = byRarity[rarity].filter((id) => !picked.has(id));

@@ -408,10 +408,6 @@ function PlayPage() {
       {poolOpen && (
         <Overlay>
           <h2 className="overlay-title">Your symbol pool</h2>
-          <p className="overlay-sub">
-            {state.pool.length} symbol{state.pool.length === 1 ? "" : "s"} in your bag.
-            One of each lands on the grid every spin.
-          </p>
           <div className="pool-grid">
             {poolCounts(state.pool).map(([id, count]) => {
               const def = SYMBOLS[id];

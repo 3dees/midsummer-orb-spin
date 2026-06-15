@@ -590,10 +590,10 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
 /** The bag the player starts with — 5 exact tile instances. */
 export const STARTING_POOL: SymbolId[] = [
   "firefly",
-  "firefly",
-  "firefly",
   "fern",
   "mushroom",
+  "dewdrop",
+  "sparrow",
 ];
 
 /** Symbols offered in the draft. Excludes starters, transform-only, easter eggs, very_rare. */

@@ -408,6 +408,7 @@ function PlayPage() {
           orbs={state.lastScore}
           rewards={state.lastRewards}
           totalSpins={state.totalSpins}
+          lastDraft={state.lastDraft}
         />
       </main>
 

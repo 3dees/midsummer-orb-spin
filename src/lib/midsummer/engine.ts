@@ -430,8 +430,8 @@ export function pickDraft(candidates: SymbolId[], titheIndex: number): SymbolId[
   while (result.length < 3) {
     const roll = Math.random();
     let rarity: string;
-    if (roll < commonChance) rarity = "common";
-    else if (roll < commonChance + uncommonChance) rarity = "uncommon";
+    if (roll < commonThreshold) rarity = "common";
+    else if (roll < uncommonThreshold) rarity = "uncommon";
     else rarity = "rare";
 
     const pool = byRarity[rarity].filter((id) => !picked.has(id));

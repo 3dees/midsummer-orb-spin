@@ -169,7 +169,7 @@ function reducer(state: GameState, action: Action): GameState {
         alternatingTick: !state.alternatingTick,
         spinInCycle: nextSpin,
         // Default: every spin opens a draft offer immediately.
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
+        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound) },
       };
 
       // Tithe check at the end of the current tithe's spin allotment.
@@ -207,7 +207,7 @@ function reducer(state: GameState, action: Action): GameState {
         orbs: remainingOrbs,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
+        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound + 1) },
       };
     }
     case "PICK_DRAFT": {

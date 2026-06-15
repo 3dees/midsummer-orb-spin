@@ -827,6 +827,23 @@ img.cabinet-frame {
   gap: 6px;
   border-top: 1px solid rgba(255,200,120,0.18);
 }
+.spin-log-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 0;
+}
+.spin-log-copy {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(255,200,120,0.12);
+  border: 1px solid rgba(255,200,120,0.35);
+  color: #ffe7a8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.spin-log-copy:hover { background: rgba(255,200,120,0.25); }
 .spin-log-group {
   background: rgba(0,0,0,0.35);
   border-radius: 8px;

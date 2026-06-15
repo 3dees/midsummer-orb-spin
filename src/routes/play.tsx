@@ -387,13 +387,6 @@ function PlayPage() {
           spinsPerCycle={titheSpinCount}
         />
 
-        <SpinLog
-          events={state.lastEvents}
-          orbs={state.lastScore}
-          rewards={state.lastRewards}
-          totalSpins={state.totalSpins}
-        />
-
         <SpinBar
           canSpin={canSpin}
           onSpin={onSpin}
@@ -401,6 +394,13 @@ function PlayPage() {
           floatScore={floatScore}
           pool={state.pool}
           onViewPool={() => setPoolOpen(true)}
+        />
+
+        <SpinLog
+          events={state.lastEvents}
+          orbs={state.lastScore}
+          rewards={state.lastRewards}
+          totalSpins={state.totalSpins}
         />
       </main>
 
@@ -992,6 +992,7 @@ function SpinLog(props: {
   totalSpins: number;
 }) {
   const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const groups = useMemo(() => {
     const map = new Map<string, { id: SymbolId; cell: number; entries: SpinEvent[]; subtotal: number }>();
@@ -1007,6 +1008,45 @@ function SpinLog(props: {
     return Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal);
   }, [props.events]);
 
+  const logText = useMemo(() => {
+    if (props.totalSpins === 0) return "Spin to begin — synergies will appear here";
+    let text = `Spin ${props.totalSpins}: +${props.orbs} orbs`;
+    if (props.rewards.rerollOrbs > 0) text += ` | +${props.rewards.rerollOrbs} reroll`;
+    if (props.rewards.removalOrbs > 0) text += ` | +${props.rewards.removalOrbs} removal`;
+    text += "\n";
+    for (const g of groups) {
+      const def = SYMBOLS[g.id];
+      text += `\n${def.name} +${g.subtotal} orbs\n`;
+      for (const ev of g.entries) {
+        if (ev.kind === "base") {
+          text += `  base: +${ev.orbs} orbs\n`;
+        } else if (ev.kind === "synergy") {
+          text += `  ${ev.greenManBoost ? "Green Man" : ev.synergyType}: ${ev.description}`;
+          if (ev.orbsDelta != null) text += ` (+${ev.orbsDelta} orbs)`;
+          if (ev.multiplier != null) text += ` (x${ev.multiplier})`;
+          if (ev.rewardKind) {
+            const rewardLabel = ev.rewardKind === "reroll_orb" ? "reroll" : ev.rewardKind === "removal_orb" ? "removal" : "orb";
+            text += ` (+${ev.rewardAmount} ${rewardLabel})`;
+          }
+          text += "\n";
+        } else if (ev.kind === "transform") {
+          text += `  transform: ${SYMBOLS[ev.from].name} → ${SYMBOLS[ev.to].name}\n`;
+        }
+      }
+    }
+    return text.trim();
+  }, [groups, props.orbs, props.rewards, props.totalSpins]);
+
+  const onCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(logText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }, [logText]);
+
   return (
     <section className={`spin-log ${open ? "" : "collapsed"}`}>
       <button type="button" className="spin-log-head" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
@@ -1021,6 +1061,11 @@ function SpinLog(props: {
       </button>
       {open && groups.length > 0 && (
         <div className="spin-log-body">
+          <div className="spin-log-actions">
+            <button type="button" className="spin-log-copy" onClick={(e) => { e.stopPropagation(); onCopy(); }}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
           {groups.map((g) => {
             const def = SYMBOLS[g.id];
             return (

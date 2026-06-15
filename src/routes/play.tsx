@@ -454,7 +454,7 @@ function PlayPage() {
           <h2 className="overlay-title">Tithe paid</h2>
           <p className="overlay-sub">
             Round {state.phase.round} of {TITHE_REQUIREMENTS.length} cleared.
-            <br />+{EMBERS_PER_TITHE} Embers granted.
+            <br />The forest is appeased. For now.
           </p>
           <button
             className="primary-btn"
@@ -549,7 +549,7 @@ function PlayPage() {
 
       {state.phase.kind === "win" && (
         <Overlay>
-          <img src={crownAsset.url} alt="" className="pixelart crown" />
+          <img src={crownImg} alt="" className="pixelart crown" />
           <h2 className="overlay-title">Crowned of Midsummer</h2>
           <p className="overlay-sub">All three tithes paid. The wood remembers your name.</p>
           <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
@@ -558,23 +558,6 @@ function PlayPage() {
         </Overlay>
       )}
 
-      {/* Out of embers without a passing orb count = loss too */}
-      {state.phase.kind !== "spinning" &&
-        state.phase.kind !== "tithe-failed" &&
-        state.phase.kind !== "win" &&
-        state.phase.kind !== "tithe-passed" &&
-        state.phase.kind !== "draft" &&
-        state.phase.kind !== "green-man-upgrade" &&
-        state.embers === 0 &&
-        state.orbs < titheRequired && (
-          <Overlay>
-            <h2 className="overlay-title">Out of embers</h2>
-            <p className="overlay-sub">The flame is cold. The tithe will not be paid.</p>
-            <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
-              Try again
-            </button>
-          </Overlay>
-        )}
     </div>
   );
 }
@@ -582,10 +565,9 @@ function PlayPage() {
 // -------- Subcomponents ----------------------------------------------------
 
 function Header(props: {
-  embers: number;
   orbs: number;
-  shards: number;
-  moonTokens: number;
+  rerollOrbs: number;
+  removalOrbs: number;
   titheRequired: number;
   spinInCycle: number;
   titheRound: number;
@@ -594,10 +576,9 @@ function Header(props: {
   return (
     <header className="hud">
       <div className="hud-row">
-        <Stat icon={<img src={flameAsset.url} alt="" className="pixelart hud-icon" />} value={props.embers} label="Embers" />
         <Stat icon={<img src={orbImg} alt="" className="pixelart hud-icon" />} value={props.orbs} label="Light Orbs" />
-        <Stat icon={<span className="hud-shard">◆</span>} value={props.shards} label="Bloom" />
-        <Stat icon={<span className="hud-moon">☾</span>} value={props.moonTokens} label="Moon Tokens" />
+        <Stat icon={<span className="hud-reroll">↺</span>} value={props.rerollOrbs} label="Reroll Orbs" />
+        <Stat icon={<span className="hud-removal">✕</span>} value={props.removalOrbs} label="Removal Orbs" />
       </div>
       <div className="hud-tithe">
         <span>Spin {Math.min(props.spinInCycle + 1, TITHE_INTERVAL)} / {TITHE_INTERVAL}</span>
@@ -910,7 +891,6 @@ function SlotFrame(props: {
 
 function SpinBar(props: {
   canSpin: boolean;
-  embers: number;
   onSpin: () => void;
   spinning: boolean;
   floatScore: { value: number; key: number } | null;
@@ -935,9 +915,6 @@ function SpinBar(props: {
           disabled={!props.canSpin}
         >
           {props.spinning ? "Spinning…" : "Spin"}
-          <span className="spin-cost">
-            −1 <img src={flameAsset.url} alt="" className="pixelart spin-cost-icon" />
-          </span>
         </button>
       </div>
     </div>
@@ -999,7 +976,7 @@ function SymbolTooltip(props: {
 function SpinLog(props: {
   events: SpinEvent[];
   orbs: number;
-  rewards: { embers: number; bloomShards: number; moonTokens: number };
+  rewards: { rerollOrbs: number; removalOrbs: number };
   totalSpins: number;
 }) {
   const [open, setOpen] = useState(true);
@@ -1025,9 +1002,8 @@ function SpinLog(props: {
           {props.totalSpins === 0 ? "Spin to begin — synergies will appear here" : `Last spin: +${props.orbs} ◐`}
         </span>
         <span className="spin-log-rewards">
-          {props.rewards.bloomShards > 0 && <span>+{props.rewards.bloomShards} ◆</span>}
-          {props.rewards.moonTokens > 0 && <span>+{props.rewards.moonTokens} ☾</span>}
-          {props.rewards.embers > 0 && <span>+{props.rewards.embers} 🔥</span>}
+          {props.rewards.rerollOrbs > 0 && <span>+{props.rewards.rerollOrbs} ↺</span>}
+          {props.rewards.removalOrbs > 0 && <span>+{props.rewards.removalOrbs} ✕</span>}
         </span>
         <span className="spin-log-toggle">{open ? "▾" : "▸"}</span>
       </button>
@@ -1063,9 +1039,8 @@ function SpinLog(props: {
                             {ev.rewardKind && (
                               <b>
                                 {" · +"}{ev.rewardAmount}{" "}
-                                {ev.rewardKind === "bloom_shard" ? "◆"
-                                  : ev.rewardKind === "moon_token" ? "☾"
-                                  : ev.rewardKind === "embers" ? "🔥"
+                                {ev.rewardKind === "reroll_orb" ? "↺"
+                                  : ev.rewardKind === "removal_orb" ? "✕"
                                   : "◐"}
                               </b>
                             )}

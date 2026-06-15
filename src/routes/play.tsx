@@ -152,6 +152,7 @@ function reducer(state: GameState, action: Action): GameState {
       const nextOrbs = state.orbs + score.orbs;
       const nextRerollOrbs = state.rerollOrbs + score.rerollOrbsGained;
       const nextRemovalOrbs = state.removalOrbs + score.removalOrbsGained;
+      const draftOffers = pickDraft(DRAFT_POOL, state.titheRound);
 
       const base: GameState = {
         ...state,
@@ -172,7 +173,7 @@ function reducer(state: GameState, action: Action): GameState {
         alternatingTick: !state.alternatingTick,
         spinInCycle: nextSpin,
         // Default: every spin opens a draft offer immediately.
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound) },
+        phase: { kind: "draft", offers: draftOffers },
       };
 
       // Tithe check at the end of the current tithe's spin allotment.
@@ -199,7 +200,7 @@ function reducer(state: GameState, action: Action): GameState {
           },
         };
       }
-      return base;
+      return { ...base, lastDraft: { offers: draftOffers, picked: null } };
     }
     case "ACK_TITHE_PASS": {
       // Subtract the paid tithe cost (surplus carries over) and advance round.

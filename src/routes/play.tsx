@@ -1074,13 +1074,30 @@ function SpinLog(props: {
         </span>
         <span className="spin-log-toggle">{open ? "▾" : "▸"}</span>
       </button>
-      {open && groups.length > 0 && (
+      {open && (groups.length > 0 || props.lastDraft) && (
         <div className="spin-log-body">
           <div className="spin-log-actions">
             <button type="button" className="spin-log-copy" onClick={(e) => { e.stopPropagation(); onCopy(); }}>
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
+          {props.lastDraft && (
+            <div className="spin-log-draft">
+              <span className="spin-log-draft-label">Draft</span>
+              <span className="spin-log-draft-choices">
+                {props.lastDraft.offers.map((id) => (
+                  <span key={id} className={`spin-log-draft-chip ${props.lastDraft!.picked === id ? "picked" : ""}`}>
+                    {SYMBOLS[id].emoji} {SYMBOLS[id].name}
+                  </span>
+                ))}
+              </span>
+              {props.lastDraft.picked ? (
+                <span className="spin-log-draft-result">→ picked {SYMBOLS[props.lastDraft.picked].name}</span>
+              ) : (
+                <span className="spin-log-draft-result">→ skipped</span>
+              )}
+            </div>
+          )}
           {groups.map((g) => {
             const def = SYMBOLS[g.id];
             return (

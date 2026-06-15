@@ -994,6 +994,7 @@ function SpinLog(props: {
   orbs: number;
   rewards: { rerollOrbs: number; removalOrbs: number };
   totalSpins: number;
+  lastDraft: { offers: SymbolId[]; picked: SymbolId | null } | null;
 }) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);

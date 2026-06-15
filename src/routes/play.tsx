@@ -20,8 +20,7 @@ import {
 import {
   GRID_COLS,
   GRID_SIZE,
-  TITHE_INTERVAL,
-  TITHE_REQUIREMENTS,
+  TITHE_SCHEDULE,
   type PoolTile,
   type SpinEvent,
   makeTile,
@@ -59,8 +58,8 @@ interface GameState {
   removalOrbs: number;
   pool: PoolTile[];
   grid: (PoolTile | null)[];
-  spinInCycle: number; // 0..TITHE_INTERVAL
-  titheRound: number; // 0..TITHE_REQUIREMENTS.length
+  spinInCycle: number; // 0..TITHE_SCHEDULE[titheRound].spins
+  titheRound: number; // 0..TITHE_SCHEDULE.length
   totalSpins: number;
   alternatingTick: boolean;
   destroyedThisRun: number;
@@ -173,12 +172,13 @@ function reducer(state: GameState, action: Action): GameState {
         phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
       };
 
-      // Tithe check on the 8th spin of a cycle.
-      if (nextSpin >= TITHE_INTERVAL) {
-        const required = TITHE_REQUIREMENTS[state.titheRound];
+      // Tithe check at the end of the current tithe's spin allotment.
+      const currentStep = TITHE_SCHEDULE[state.titheRound];
+      if (currentStep && nextSpin >= currentStep.spins) {
+        const required = currentStep.orbs;
         if (nextOrbs >= required) {
           const newRound = state.titheRound + 1;
-          if (newRound >= TITHE_REQUIREMENTS.length) {
+          if (newRound >= TITHE_SCHEDULE.length) {
             return { ...base, phase: { kind: "win" } };
           }
           return {
@@ -287,9 +287,11 @@ function PlayPage() {
     }
   }, [state.phase.kind, state.lastScore]);
 
-  const titheRequired = TITHE_REQUIREMENTS[state.titheRound] ?? 0;
-  const spinsLeft = Math.max(0, TITHE_INTERVAL - state.spinInCycle);
-  const titheWarning = state.titheRound < TITHE_REQUIREMENTS.length && spinsLeft <= 2 && state.phase.kind !== "spinning";
+  const currentTithe = TITHE_SCHEDULE[state.titheRound];
+  const titheRequired = currentTithe?.orbs ?? 0;
+  const titheSpinCount = currentTithe?.spins ?? 0;
+  const spinsLeft = Math.max(0, titheSpinCount - state.spinInCycle);
+  const titheWarning = state.titheRound < TITHE_SCHEDULE.length && spinsLeft <= 2 && state.phase.kind !== "spinning";
 
   const canSpin = state.phase.kind === "idle";
 
@@ -344,6 +346,7 @@ function PlayPage() {
           titheRequired={titheRequired}
           spinInCycle={state.spinInCycle}
           titheRound={state.titheRound}
+          titheSpinCount={titheSpinCount}
         />
 
         {titheWarning && (
@@ -453,7 +456,7 @@ function PlayPage() {
         <Overlay>
           <h2 className="overlay-title">Tithe paid</h2>
           <p className="overlay-sub">
-            Round {state.phase.round} of {TITHE_REQUIREMENTS.length} cleared.
+            Round {state.phase.round} of {TITHE_SCHEDULE.length} cleared.
             <br />The forest is appeased. For now.
           </p>
           <button

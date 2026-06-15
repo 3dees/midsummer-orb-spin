@@ -69,6 +69,7 @@ interface GameState {
   lastEvents: SpinEvent[];
   contributingCells: Set<number>;
   phase: Phase;
+  lastDraft: { offers: SymbolId[]; picked: SymbolId | null } | null;
 }
 
 function initialState(): GameState {

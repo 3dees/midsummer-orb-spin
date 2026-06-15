@@ -91,6 +91,7 @@ function initialState(): GameState {
     lastEvents: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
+    lastDraft: null,
   };
 }
 

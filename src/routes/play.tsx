@@ -249,6 +249,7 @@ function reducer(state: GameState, action: Action): GameState {
         grid: rollGrid(nextPool),
         contributingCells: new Set(),
         phase: upgradePhase ?? { kind: "idle" },
+        lastDraft: state.lastDraft ? { ...state.lastDraft, picked: action.id } : null,
       };
     }
     case "ACK_GREEN_MAN": {

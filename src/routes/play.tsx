@@ -206,12 +206,14 @@ function reducer(state: GameState, action: Action): GameState {
       // Subtract the paid tithe cost (surplus carries over) and advance round.
       const paidStep = TITHE_SCHEDULE[state.titheRound];
       const remainingOrbs = Math.max(0, state.orbs - (paidStep?.orbs ?? 0));
+      const draftOffers = pickDraft(DRAFT_POOL, state.titheRound + 1);
       return {
         ...state,
         orbs: remainingOrbs,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
-        phase: { kind: "draft", offers: pickDraft(DRAFT_POOL, state.titheRound + 1) },
+        phase: { kind: "draft", offers: draftOffers },
+        lastDraft: { offers: draftOffers, picked: null },
       };
     }
     case "PICK_DRAFT": {

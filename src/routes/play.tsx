@@ -387,13 +387,6 @@ function PlayPage() {
           spinsPerCycle={titheSpinCount}
         />
 
-        <SpinLog
-          events={state.lastEvents}
-          orbs={state.lastScore}
-          rewards={state.lastRewards}
-          totalSpins={state.totalSpins}
-        />
-
         <SpinBar
           canSpin={canSpin}
           onSpin={onSpin}
@@ -401,6 +394,13 @@ function PlayPage() {
           floatScore={floatScore}
           pool={state.pool}
           onViewPool={() => setPoolOpen(true)}
+        />
+
+        <SpinLog
+          events={state.lastEvents}
+          orbs={state.lastScore}
+          rewards={state.lastRewards}
+          totalSpins={state.totalSpins}
         />
       </main>
 

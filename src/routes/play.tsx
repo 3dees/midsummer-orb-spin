@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import backgroundAsset from "@/assets/background.png.asset.json";
-import flameAsset from "@/assets/sprites/flame.png.asset.json";
-import crownAsset from "@/assets/sprites/crown.png.asset.json";
+import crownImg from "@/assets/sprites/crown.png";
 import orbImg from "@/assets/sprites/orb.png";
 import cabinetImg from "@/assets/cabinet_clean.png";
 
@@ -19,10 +18,8 @@ import {
   type SynergyGroupId,
 } from "@/lib/midsummer/symbols";
 import {
-  EMBERS_PER_TITHE,
   GRID_COLS,
   GRID_SIZE,
-  START_EMBERS,
   TITHE_INTERVAL,
   TITHE_REQUIREMENTS,
   type PoolTile,
@@ -57,10 +54,9 @@ type Phase =
   | { kind: "loss" };
 
 interface GameState {
-  embers: number;
   orbs: number; // banked towards tithe
-  bloomShards: number;
-  moonTokens: number;
+  rerollOrbs: number;
+  removalOrbs: number;
   pool: PoolTile[];
   grid: (PoolTile | null)[];
   spinInCycle: number; // 0..TITHE_INTERVAL
@@ -70,7 +66,7 @@ interface GameState {
   destroyedThisRun: number;
   appearanceCounts: Record<string, number>;
   lastScore: number;
-  lastRewards: { embers: number; bloomShards: number; moonTokens: number };
+  lastRewards: { rerollOrbs: number; removalOrbs: number };
   lastEvents: SpinEvent[];
   contributingCells: Set<number>;
   phase: Phase;
@@ -79,10 +75,9 @@ interface GameState {
 function initialState(): GameState {
   const pool = STARTING_POOL.map((id) => makeTile(id));
   return {
-    embers: START_EMBERS,
     orbs: 0,
-    bloomShards: 0,
-    moonTokens: 0,
+    rerollOrbs: 0,
+    removalOrbs: 0,
     pool,
     grid: new Array(GRID_SIZE).fill(null),
     spinInCycle: 0,
@@ -92,7 +87,7 @@ function initialState(): GameState {
     destroyedThisRun: 0,
     appearanceCounts: {},
     lastScore: 0,
-    lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
+    lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
     lastEvents: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
@@ -111,17 +106,14 @@ type Action =
 function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "BEGIN_SPIN": {
-      if (state.embers <= 0) return state;
       if (state.phase.kind !== "idle") return state;
       return {
         ...state,
-        embers: state.embers - 1,
-        // Temporary scrambled grid while "spinning"
         grid: rollGrid(state.pool),
         contributingCells: new Set(),
         lastScore: 0,
         lastEvents: [],
-        lastRewards: { embers: 0, bloomShards: 0, moonTokens: 0 },
+        lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
         phase: { kind: "spinning" },
       };
     }
@@ -156,23 +148,20 @@ function reducer(state: GameState, action: Action): GameState {
 
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
-      const nextEmbers = state.embers + score.embersGained;
-      const nextShards = state.bloomShards + score.bloomShardsGained;
-      const nextMoonTokens = state.moonTokens + score.moonTokensGained;
+      const nextRerollOrbs = state.rerollOrbs + score.rerollOrbsGained;
+      const nextRemovalOrbs = state.removalOrbs + score.removalOrbsGained;
 
       const base: GameState = {
         ...state,
         pool: nextPool,
         grid: displayedGrid,
         orbs: nextOrbs,
-        embers: nextEmbers,
-        bloomShards: nextShards,
-        moonTokens: nextMoonTokens,
+        rerollOrbs: nextRerollOrbs,
+        removalOrbs: nextRemovalOrbs,
         lastScore: score.orbs,
         lastRewards: {
-          embers: score.embersGained,
-          bloomShards: score.bloomShardsGained,
-          moonTokens: score.moonTokensGained,
+          rerollOrbs: score.rerollOrbsGained,
+          removalOrbs: score.removalOrbsGained,
         },
         lastEvents: events,
         contributingCells: score.contributingCells,
@@ -210,11 +199,10 @@ function reducer(state: GameState, action: Action): GameState {
       return base;
     }
     case "ACK_TITHE_PASS": {
-      // Reset cycle, pay ember reward, then surface this spin's draft offer.
+      // Reset cycle and advance round; surface draft offer.
       return {
         ...state,
         orbs: 0,
-        embers: state.embers + EMBERS_PER_TITHE,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
         phase: { kind: "draft", offers: pickDraft(DRAFT_POOL) },
@@ -303,7 +291,7 @@ function PlayPage() {
   const spinsLeft = Math.max(0, TITHE_INTERVAL - state.spinInCycle);
   const titheWarning = state.titheRound < TITHE_REQUIREMENTS.length && spinsLeft <= 2 && state.phase.kind !== "spinning";
 
-  const canSpin = state.embers > 0 && state.phase.kind === "idle";
+  const canSpin = state.phase.kind === "idle";
 
   const onSpin = useCallback(() => {
     setTooltip(null);
@@ -350,10 +338,9 @@ function PlayPage() {
 
       <main className="midsummer-stage" onClick={(e) => e.stopPropagation()}>
         <Header
-          embers={state.embers}
           orbs={state.orbs}
-          shards={state.bloomShards}
-          moonTokens={state.moonTokens}
+          rerollOrbs={state.rerollOrbs}
+          removalOrbs={state.removalOrbs}
           titheRequired={titheRequired}
           spinInCycle={state.spinInCycle}
           titheRound={state.titheRound}
@@ -403,7 +390,6 @@ function PlayPage() {
 
         <SpinBar
           canSpin={canSpin}
-          embers={state.embers}
           onSpin={onSpin}
           spinning={state.phase.kind === "spinning"}
           floatScore={floatScore}

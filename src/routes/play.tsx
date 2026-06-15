@@ -1019,6 +1019,16 @@ function SpinLog(props: {
     if (props.rewards.rerollOrbs > 0) text += ` | +${props.rewards.rerollOrbs} reroll`;
     if (props.rewards.removalOrbs > 0) text += ` | +${props.rewards.removalOrbs} removal`;
     text += "\n";
+    if (props.lastDraft) {
+      const offerNames = props.lastDraft.offers.map((id) => SYMBOLS[id].name);
+      text += `\nDraft: ${offerNames.join(", ")}`;
+      if (props.lastDraft.picked) {
+        text += ` → picked ${SYMBOLS[props.lastDraft.picked].name}`;
+      } else {
+        text += " → skipped";
+      }
+      text += "\n";
+    }
     for (const g of groups) {
       const def = SYMBOLS[g.id];
       text += `\n${def.name} +${g.subtotal} orbs\n`;
@@ -1040,7 +1050,7 @@ function SpinLog(props: {
       }
     }
     return text.trim();
-  }, [groups, props.orbs, props.rewards, props.totalSpins]);
+  }, [groups, props.orbs, props.rewards, props.totalSpins, props.lastDraft]);
 
   const onCopy = useCallback(async () => {
     try {

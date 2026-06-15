@@ -655,6 +655,14 @@ img.cabinet-frame {
   font-size: 18px;
   text-shadow: 0 0 8px hsl(220 80% 70% / 0.6);
 }
+.hud-reroll {
+  font-size: 1rem;
+  color: #5fffd7;
+}
+.hud-removal {
+  font-size: 0.9rem;
+  color: #c084fc;
+}
 
 /* ============================================================ */
 /* Synergy groups, tooltips, breakdown panel                    */

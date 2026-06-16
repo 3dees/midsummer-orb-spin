@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import backgroundAsset from "@/assets/background.png.asset.json";
 import crownImg from "@/assets/sprites/crown.png";
 import orbImg from "@/assets/sprites/orb.png";
+import flameImg from "@/assets/sprites/flame.png";
 import cabinetImg from "@/assets/cabinet_clean.png";
 
 import {

@@ -541,9 +541,7 @@ function PlayPage() {
             );
           }}
           onChipClick={onTooltipChip}
-          revealPopCell={reveal && reveal.phase === "cells" ? reveal.popCell : null}
-          revealPopValue={reveal ? reveal.popValue : 0}
-          revealPopKey={reveal ? reveal.popKey : 0}
+          revealFloats={reveal ? reveal.floats : EMPTY_FLOATS}
           acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
           titheRound={state.titheRound + 1}
           orbs={state.orbs}

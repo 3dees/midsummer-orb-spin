@@ -130,12 +130,13 @@ function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "BEGIN_SPIN": {
       if (state.phase.kind !== "idle") return state;
-      // Throwaway scrambled grid shown only during the spin animation.
-      // The real grid is rolled, scored, AND displayed in RESOLVE_SPIN.
-      const scrambleGrid = rollGrid(state.pool);
+      // Roll the final grid once. The "spinning" CSS class animates the
+      // tiles in place; RESOLVE_SPIN settles onto this same grid — no
+      // intermediate stop on a throwaway layout.
+      const finalGrid = rollGrid(state.pool);
       return {
         ...state,
-        grid: scrambleGrid,
+        grid: finalGrid,
         contributingCells: new Set(),
         lastScore: 0,
         lastEvents: [],
@@ -147,7 +148,8 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "RESOLVE_SPIN": {
       if (state.phase.kind !== "spinning") return state;
-      const finalGrid = rollGrid(state.pool);
+      // Score the grid rolled in BEGIN_SPIN — do not re-roll.
+      const finalGrid = state.grid;
       const score = scoreGrid(finalGrid, {
         totalSpins: state.totalSpins,
         roundNumber: state.titheRound + 1,
@@ -273,7 +275,6 @@ function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         pool: nextPool,
-        grid: rollGrid(nextPool),
         removalOrbs: state.removalOrbs - 1,
         destroyedThisRun: state.destroyedThisRun + 1,
       };
@@ -308,7 +309,6 @@ function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         pool: nextPool,
-        grid: rollGrid(nextPool),
         contributingCells: new Set(),
         phase: upgradePhase ?? { kind: "idle" },
         lastDraft: state.lastDraft ? { ...state.lastDraft, picked: action.id } : null,

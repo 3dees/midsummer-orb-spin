@@ -16,6 +16,7 @@ import {
   groupsForSymbol,
   type SymbolId,
   type SynergyGroupId,
+  type SymbolDef,
 } from "@/lib/midsummer/symbols";
 import {
   GRID_COLS,

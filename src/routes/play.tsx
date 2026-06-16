@@ -892,6 +892,9 @@ function SlotFrame(props: {
   openTooltipCell: number | null;
   onCellClick: (idx: number, hasSymbol: boolean) => void;
   onChipClick: (g: SynergyGroupId) => void;
+  revealPopCell: number | null;
+  revealPopValue: number;
+  revealPopKey: number;
   acornCountdown: number;
   titheRound: number;
   orbs: number;
@@ -1055,6 +1058,11 @@ function SlotFrame(props: {
               className={`cell ${isHot ? "cell-hot" : ""} ${isHi ? "cell-grouped" : ""}`}
               onClick={(e) => { e.stopPropagation(); props.onCellClick(i, true); }}
             >
+              {props.revealPopCell === i && props.revealPopValue > 0 && (
+                <div key={props.revealPopKey} className="cell-pop">
+                  +{props.revealPopValue}
+                </div>
+              )}
               {def.sprite ? (
                 <img
                   key={`${id}-${i}-${props.spinning ? "s" : "r"}`}

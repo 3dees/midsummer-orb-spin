@@ -650,7 +650,7 @@ function PlayPage() {
               Reroll ↺ {state.rerollOrbs}
             </button>
             <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
-              Skip — keep pool lean
+              skip
             </button>
           </div>
         </Overlay>

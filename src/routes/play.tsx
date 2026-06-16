@@ -275,7 +275,6 @@ function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         pool: nextPool,
-        grid: rollGrid(nextPool),
         removalOrbs: state.removalOrbs - 1,
         destroyedThisRun: state.destroyedThisRun + 1,
       };
@@ -310,7 +309,6 @@ function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         pool: nextPool,
-        grid: rollGrid(nextPool),
         contributingCells: new Set(),
         phase: upgradePhase ?? { kind: "idle" },
         lastDraft: state.lastDraft ? { ...state.lastDraft, picked: action.id } : null,

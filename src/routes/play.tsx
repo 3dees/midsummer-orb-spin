@@ -540,46 +540,13 @@ function PlayPage() {
           <p className="overlay-sub">
             Round {state.phase.round} of {TITHE_SCHEDULE.length} cleared.
             <br />The forest is appeased. For now.
+            <br /><span className="tithe-bonus">+1 ✕ Removal Orb</span>
           </p>
           <button
             className="primary-btn"
             onClick={() => dispatch({ type: "ACK_TITHE_PASS" })}
           >
             Continue
-          </button>
-        </Overlay>
-      )}
-
-      {state.phase.kind === "tithe-removal" && (
-        <Overlay>
-          <h2 className="overlay-title">Thin your pool</h2>
-          <p className="overlay-sub">
-            The tithe is paid. Cut one symbol from your bag for free, or keep
-            them all.
-          </p>
-          <div className="pool-grid">
-            {poolCounts(state.pool).map(([id, count]) => {
-              const def = SYMBOLS[id];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className="pool-grid-chip removable"
-                  onClick={(e) => { e.stopPropagation(); dispatch({ type: "TAKE_TITHE_REMOVAL", id }); }}
-                >
-                  {def.sprite ? (
-                    <img src={def.sprite} alt={def.name} className="pixelart" />
-                  ) : (
-                    <span className="pool-grid-emoji" aria-hidden>{def.emoji}</span>
-                  )}
-                  <span className="pool-grid-count">×{count}</span>
-                  <span className="pool-grid-name">{def.name}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_TITHE_REMOVAL" })}>
-            Skip — keep pool as is
           </button>
         </Overlay>
       )}

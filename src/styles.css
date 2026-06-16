@@ -286,6 +286,12 @@ img.cabinet-frame {
   height: var(--cell-px);
   aspect-ratio: 1 / 1;
   background: transparent;
+  /* Step A: subtle bioluminescent teal grid lines between cells. */
+  box-shadow:
+    inset -1px 0 0 rgba(120, 230, 210, 0.18),
+    inset 0 -1px 0 rgba(120, 230, 210, 0.18),
+    inset 1px 0 0 rgba(120, 230, 210, 0.10),
+    inset 0 1px 0 rgba(120, 230, 210, 0.10);
 }
 
 .slot-grid {
@@ -943,3 +949,30 @@ img.cabinet-frame {
 .upgrade-emoji { font-size: 20px; }
 .upgrade-name { font-weight: 600; color: #ffe7a8; }
 .upgrade-arrow { color: #7dffb6; font-weight: 800; }
+
+/* Pool overlay actions + removable highlight ------------------ */
+.pool-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.pool-grid-chip.removable {
+  cursor: pointer;
+  outline: 1px dashed rgba(255, 120, 120, 0.55);
+  outline-offset: 2px;
+  transition: transform 0.1s ease, outline-color 0.15s ease;
+}
+.pool-grid-chip.removable:hover {
+  outline-color: rgba(255, 160, 160, 0.95);
+  transform: scale(1.04);
+}
+.ghost-btn.active {
+  background: rgba(255, 120, 120, 0.18);
+  border-color: rgba(255, 120, 120, 0.55);
+  color: #ffd0d0;
+}
+
+/* Draft overlay actions row (Reroll + Skip) ------------------- */
+.draft-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  margin-top: 6px;
+}

@@ -499,6 +499,7 @@ function PlayPage() {
       {/* Forest backdrop */}
       <div
         className="midsummer-bg"
+        data-season={seasonIndexForRound(state.titheRound + 1)}
         style={{ backgroundImage: `url(${backgroundAsset.url})` }}
         aria-hidden
       />

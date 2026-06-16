@@ -306,9 +306,32 @@ function reducer(state: GameState, action: Action): GameState {
         }
       }
 
+      // Show the newly drafted symbol on the board immediately, without
+      // reshuffling the existing layout. Prefer an empty cell; otherwise
+      // replace a random cell. After a Green Man upgrade, also sync any
+      // transformed pool tiles whose uid still appears on the board.
+      const nextGrid = state.grid.slice();
+      if (upgradePhase) {
+        const poolByUid = new Map(nextPool.map((t) => [t.uid, t] as const));
+        for (let i = 0; i < nextGrid.length; i++) {
+          const cell = nextGrid[i];
+          if (cell && poolByUid.has(cell.uid)) {
+            nextGrid[i] = poolByUid.get(cell.uid)!;
+          }
+        }
+      }
+      const emptyIdxs: number[] = [];
+      for (let i = 0; i < nextGrid.length; i++) if (nextGrid[i] == null) emptyIdxs.push(i);
+      const placeAt =
+        emptyIdxs.length > 0
+          ? emptyIdxs[Math.floor(Math.random() * emptyIdxs.length)]
+          : Math.floor(Math.random() * nextGrid.length);
+      nextGrid[placeAt] = added;
+
       return {
         ...state,
         pool: nextPool,
+        grid: nextGrid,
         contributingCells: new Set(),
         phase: upgradePhase ?? { kind: "idle" },
         lastDraft: state.lastDraft ? { ...state.lastDraft, picked: action.id } : null,

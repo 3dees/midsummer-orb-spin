@@ -1193,9 +1193,9 @@ function SpinBar(props: {
   );
 }
 
-function Overlay(props: { children: React.ReactNode }) {
+function Overlay(props: { children: React.ReactNode; elevated?: boolean }) {
   return (
-    <div className="overlay animate-fade-in">
+    <div className="overlay animate-fade-in" style={props.elevated ? { zIndex: 60 } : undefined}>
       <div className="overlay-card">{props.children}</div>
     </div>
   );

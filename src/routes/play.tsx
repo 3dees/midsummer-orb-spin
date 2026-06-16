@@ -1068,11 +1068,13 @@ function SlotFrame(props: {
               className={`cell ${isHot ? "cell-hot" : ""} ${isHi ? "cell-grouped" : ""}`}
               onClick={(e) => { e.stopPropagation(); props.onCellClick(i, true); }}
             >
-              {props.revealPopCell === i && props.revealPopValue > 0 && (
-                <div key={props.revealPopKey} className="cell-pop">
-                  +{props.revealPopValue}
-                </div>
-              )}
+              {props.revealFloats
+                .filter((f) => f.cell === i)
+                .map((f) => (
+                  <div key={f.id} className="cell-pop">
+                    +{f.value}
+                  </div>
+                ))}
               {def.sprite ? (
                 <img
                   key={`${id}-${i}-${props.spinning ? "s" : "r"}`}

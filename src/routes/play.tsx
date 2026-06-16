@@ -16,6 +16,7 @@ import {
   groupsForSymbol,
   type SymbolId,
   type SynergyGroupId,
+  type SymbolDef,
 } from "@/lib/midsummer/symbols";
 import {
   GRID_COLS,
@@ -101,6 +102,14 @@ function initialState(): GameState {
     phase: { kind: "idle" },
     lastDraft: null,
   };
+}
+
+function cardBodyText(def: SymbolDef): string {
+  const d = def.description;
+  const m = d.match(/^\+(\d+)\.\s+(.*)$/);
+  if (m) return m[2];
+  if (/^\+(\d+) Light Orbs?\.$/.test(d)) return "";
+  return d;
 }
 
 type Action =
@@ -618,7 +627,8 @@ function PlayPage() {
                   )}
                   <div className="draft-name">{def.name}</div>
                   <div className={`draft-rarity rarity-${def.rarity}`}>{rarityLabel}</div>
-                  <div className="draft-desc">{def.description}</div>
+                  <div className="draft-points">+{def.baseValue} ◐</div>
+                  <div className="draft-desc">{cardBodyText(def)}</div>
                   {groups.length > 0 && (
                     <div className="draft-groups">
                       {groups.map((g) => (
@@ -1075,7 +1085,7 @@ function SymbolTooltip(props: {
         </div>
       </div>
       <div className="symbol-tip-base">Base: +{def.baseValue} ◐</div>
-      <div className="symbol-tip-desc">{def.description}</div>
+      <div className="symbol-tip-desc">{cardBodyText(def)}</div>
       {props.extra && <div className="symbol-tip-extra">⏳ {props.extra}</div>}
       {groups.length > 0 && (
         <div className="symbol-tip-groups">

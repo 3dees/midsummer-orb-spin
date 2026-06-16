@@ -596,6 +596,7 @@ img.cabinet-frame {
 .draft-card img { width: 60px; height: 60px; }
 .draft-name { font-weight: 700; color: #ffe7a8; font-size: 14px; }
 .draft-rarity { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.draft-points { font-size: 12px; font-weight: 700; color: #ffe7a8; }
 .draft-desc { font-size: 11px; color: #cfc5a2; line-height: 1.3; }
 
 .view-pool-btn {
@@ -754,7 +755,7 @@ img.cabinet-frame {
 .rarity-very_rare { color: #ffd06b; text-shadow: 0 0 6px rgba(255,200,80,0.5); }
 
 .symbol-tip-base { margin-top: 6px; color: #ffe7a8; font-weight: 600; }
-.symbol-tip-desc { margin-top: 4px; color: #d8d2b6; }
+.symbol-tip-desc { margin-top: 10px; color: #d8d2b6; }
 .symbol-tip-extra {
   margin-top: 6px; padding: 4px 6px;
   border-radius: 6px;

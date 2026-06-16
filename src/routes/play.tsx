@@ -74,6 +74,7 @@ interface GameState {
   lastScore: number;
   lastRewards: { rerollOrbs: number; removalOrbs: number };
   lastEvents: SpinEvent[];
+  lastPerCell: number[];
   contributingCells: Set<number>;
   phase: Phase;
   lastDraft: { offers: SymbolId[]; picked: SymbolId | null } | null;
@@ -98,6 +99,7 @@ function initialState(): GameState {
     lastScore: 0,
     lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
     lastEvents: [],
+    lastPerCell: [],
     contributingCells: new Set(),
     phase: { kind: "idle" },
     lastDraft: null,
@@ -133,6 +135,7 @@ function reducer(state: GameState, action: Action): GameState {
         contributingCells: new Set(),
         lastScore: 0,
         lastEvents: [],
+        lastPerCell: [],
         lastRewards: { rerollOrbs: 0, removalOrbs: 0 },
         lastDraft: null,
         phase: { kind: "spinning" },
@@ -189,6 +192,7 @@ function reducer(state: GameState, action: Action): GameState {
           removalOrbs: score.removalOrbsGained,
         },
         lastEvents: events,
+        lastPerCell: score.perCell,
         contributingCells: score.contributingCells,
         appearanceCounts: score.appearanceCountsNext,
         totalSpins: state.totalSpins + 1,

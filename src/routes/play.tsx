@@ -329,8 +329,18 @@ function reducer(state: GameState, action: Action): GameState {
 
 function PlayPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
-  const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
   const [poolOpen, setPoolOpen] = useState(false);
+  // Sequential score reveal (LBaL-style). Purely visual; never mutates score.
+  type RevealPhase = "cells" | "rewards" | "total" | "done";
+  const [reveal, setReveal] = useState<{
+    idx: number;            // last cell index revealed (-1 before first)
+    running: number;        // running total shown in the tray
+    popCell: number | null; // cell currently popping "+N"
+    popValue: number;
+    popKey: number;         // forces remount of the pop element
+    phase: RevealPhase;
+    spinSerial: number;     // ties reveal to a specific spin
+  } | null>(null);
   const [tooltip, setTooltip] = useState<
     | { kind: "cell"; index: number }
     | { kind: "pool"; id: SymbolId }
@@ -345,14 +355,79 @@ function PlayPage() {
     return () => clearTimeout(t);
   }, [state.phase.kind]);
 
-  // Show floating "+N orbs" when a spin resolves.
+  // Kick off the sequential reveal whenever a spin resolves into a post-spin
+  // phase. `state.totalSpins` is the stable serial — it ticks once per spin.
+  const isPostSpinPhase =
+    state.phase.kind === "draft" ||
+    state.phase.kind === "tithe-passed" ||
+    state.phase.kind === "tithe-failed" ||
+    state.phase.kind === "win";
   useEffect(() => {
-    if (state.lastScore > 0 && (state.phase.kind === "draft" || state.phase.kind === "tithe-passed")) {
-      setFloatScore({ value: state.lastScore, key: Date.now() });
-      const t = setTimeout(() => setFloatScore(null), 1400);
+    if (state.phase.kind === "spinning" || state.phase.kind === "idle") {
+      setReveal(null);
+      return;
+    }
+    if (!isPostSpinPhase) return;
+    // Skip animation entirely on zero-score spins.
+    if (state.lastScore === 0 && state.lastEvents.length === 0) {
+      setReveal({ idx: GRID_SIZE - 1, running: 0, popCell: null, popValue: 0, popKey: 0, phase: "done", spinSerial: state.totalSpins });
+      return;
+    }
+    setReveal({ idx: -1, running: 0, popCell: null, popValue: 0, popKey: 0, phase: "cells", spinSerial: state.totalSpins });
+    // Intentionally only on spin transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.totalSpins]);
+
+  // Drive the reveal forward.
+  useEffect(() => {
+    if (!reveal || reveal.phase === "done") return;
+    if (reveal.phase === "cells") {
+      if (reveal.idx >= GRID_SIZE - 1) {
+        const hasReward = state.lastRewards.rerollOrbs > 0 || state.lastRewards.removalOrbs > 0;
+        const t = setTimeout(() => {
+          setReveal((r) => (r ? { ...r, phase: hasReward ? "rewards" : "total", popCell: null, popValue: 0 } : r));
+        }, 220);
+        return () => clearTimeout(t);
+      }
+      const nextIdx = reveal.idx + 1;
+      const v = state.lastPerCell[nextIdx] ?? 0;
+      const delay = v > 0 ? 90 : 28; // skim past empties
+      const t = setTimeout(() => {
+        setReveal((r) =>
+          r && r.phase === "cells"
+            ? {
+                ...r,
+                idx: nextIdx,
+                running: r.running + v,
+                popCell: v > 0 ? nextIdx : null,
+                popValue: v,
+                popKey: r.popKey + 1,
+              }
+            : r,
+        );
+      }, delay);
       return () => clearTimeout(t);
     }
-  }, [state.phase.kind, state.lastScore]);
+    if (reveal.phase === "rewards") {
+      const t = setTimeout(() => setReveal((r) => (r ? { ...r, phase: "total" } : r)), 650);
+      return () => clearTimeout(t);
+    }
+    if (reveal.phase === "total") {
+      const t = setTimeout(() => setReveal((r) => (r ? { ...r, phase: "done" } : r)), 750);
+      return () => clearTimeout(t);
+    }
+  }, [reveal, state.lastPerCell, state.lastRewards.rerollOrbs, state.lastRewards.removalOrbs]);
+
+  const skipReveal = useCallback(() => {
+    setReveal((r) =>
+      r && r.phase !== "done"
+        ? { ...r, idx: GRID_SIZE - 1, running: state.lastScore, popCell: null, popValue: 0, phase: "done" }
+        : r,
+    );
+  }, [state.lastScore]);
+
+  const revealing = reveal != null && reveal.phase !== "done";
+  const overlaysGated = revealing && isPostSpinPhase;
 
   const currentTithe = TITHE_SCHEDULE[state.titheRound];
   const titheRequired = currentTithe?.orbs ?? 0;
@@ -396,7 +471,13 @@ function PlayPage() {
     : [];
 
   return (
-    <div className="midsummer-root" onClick={() => setTooltip(null)}>
+    <div
+      className="midsummer-root"
+      onClick={() => {
+        setTooltip(null);
+        if (revealing) skipReveal();
+      }}
+    >
       {/* Forest backdrop */}
       <div
         className="midsummer-bg"
@@ -439,12 +520,16 @@ function PlayPage() {
           highlightGroup={highlightGroup}
           openTooltipCell={tooltip && tooltip.kind === "cell" ? tooltip.index : null}
           onCellClick={(idx, hasSymbol) => {
+            if (revealing) { skipReveal(); return; }
             if (!hasSymbol) { setTooltip(null); return; }
             setTooltip((cur) =>
               cur && cur.kind === "cell" && cur.index === idx ? null : { kind: "cell", index: idx },
             );
           }}
           onChipClick={onTooltipChip}
+          revealPopCell={reveal && reveal.phase === "cells" ? reveal.popCell : null}
+          revealPopValue={reveal ? reveal.popValue : 0}
+          revealPopKey={reveal ? reveal.popKey : 0}
           acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
           titheRound={state.titheRound + 1}
           orbs={state.orbs}
@@ -455,9 +540,11 @@ function PlayPage() {
 
         <SpinBar
           canSpin={canSpin}
-          onSpin={onSpin}
+          onSpin={() => { if (revealing) { skipReveal(); return; } onSpin(); }}
           spinning={state.phase.kind === "spinning"}
-          floatScore={floatScore}
+          reveal={reveal}
+          finalScore={state.lastScore}
+          rewards={state.lastRewards}
           pool={state.pool}
           onViewPool={() => setPoolOpen(true)}
         />
@@ -561,6 +648,7 @@ function PlayPage() {
       )}
 
       {state.phase.kind === "tithe-passed" && (
+        !overlaysGated &&
         <Overlay>
           <h2 className="overlay-title">Tithe paid</h2>
           <p className="overlay-sub">
@@ -605,7 +693,7 @@ function PlayPage() {
         </Overlay>
       )}
 
-      {state.phase.kind === "draft" && (
+      {state.phase.kind === "draft" && !overlaysGated && (
         <Overlay>
           <h2 className="overlay-title">Add a symbol?</h2>
           <p className="overlay-sub">
@@ -660,7 +748,7 @@ function PlayPage() {
         </Overlay>
       )}
 
-      {state.phase.kind === "tithe-failed" && (
+      {state.phase.kind === "tithe-failed" && !overlaysGated && (
         <Overlay>
           <h2 className="overlay-title">The forest claims its due</h2>
           <p className="overlay-sub">
@@ -672,7 +760,7 @@ function PlayPage() {
         </Overlay>
       )}
 
-      {state.phase.kind === "win" && (
+      {state.phase.kind === "win" && !overlaysGated && (
         <Overlay>
           <img src={crownImg} alt="" className="pixelart crown" />
           <h2 className="overlay-title">Crowned of Midsummer</h2>

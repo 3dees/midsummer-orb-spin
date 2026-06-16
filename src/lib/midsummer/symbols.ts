@@ -90,7 +90,7 @@ export type Synergy =
   | { type: "alternating"; multiplier: number; description: string }
   | { type: "roundBonus"; roundType: "odd" | "even"; targets: SynergyTarget[]; bonus: number; description: string }
   | { type: "roundPenalty"; roundType: "odd" | "even"; multiplier: number; description: string }
-  | { type: "spinCounter"; bonus: number; description: string }
+  | { type: "spinCounter"; bonus: number; cap?: number; description: string }
   | { type: "runningTotal"; tracks: "destroyed_symbols"; bonus: number; cap: number; description: string }
   // --- v2 placeholders (data preserved, tooltip-only) ---
   | { type: "transform"; transformInto: string; afterSpins: number; description: string }
@@ -569,7 +569,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     baseValue: 3, tags: [],
     easterEgg: true,
     synergies: [
-      { type: "spinCounter", bonus: 1, description: "+1 for each spin this symbol has been in your pool (max +8)" },
+      { type: "spinCounter", bonus: 1, cap: 8, description: "+1 for each spin this symbol has been in your pool (max +8)" },
     ],
   }),
 
@@ -612,8 +612,9 @@ export const DRAFT_POOL: SymbolId[] = [
 
 /** Resolve whether `target` matches a given symbol id (or "all"). */
 export function symbolMatches(target: SynergyTarget, id: SymbolId): boolean {
+  const d = SYMBOLS[id];
+  if (!d) return false;
   if (target === "all") return true;
   if (target === id) return true;
-  const d = SYMBOLS[id];
   return d.tags.includes(target as Tag);
 }

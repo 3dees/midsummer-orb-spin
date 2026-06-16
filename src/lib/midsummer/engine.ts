@@ -292,6 +292,8 @@ export function scoreGrid(
           break;
         }
         case "periodicReward": {
+          if (firedGlobals.has(syn)) break;   // one payout per symbol id per spin
+          firedGlobals.add(syn);
           const before = ctx.appearanceCounts[id] ?? 0;
           const after = before + 1;
           const crossings =
@@ -335,10 +337,12 @@ export function scoreGrid(
           break;
         }
         case "spinCounter": {
-          perCell[i] += syn.bonus * ctx.totalSpins;
-          if (ctx.totalSpins > 0) {
+          const age = tileGrid[i]?.age ?? 0;
+          const steps = syn.cap != null ? Math.min(age, syn.cap) : age;
+          if (steps > 0) {
+            perCell[i] += syn.bonus * steps;
             contributing.add(i);
-            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * ctx.totalSpins });
+            events.push({ kind: "synergy", cell: i, id, synergyType: syn.type, description: syn.description, orbsDelta: syn.bonus * steps });
           }
           break;
         }

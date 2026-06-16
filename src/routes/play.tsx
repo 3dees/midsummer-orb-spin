@@ -748,6 +748,13 @@ function PlayPage() {
             <button
               type="button"
               className="ghost-btn"
+              onClick={() => setPoolOpen(true)}
+            >
+              Bag ({state.pool.length})
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
               disabled={state.rerollOrbs <= 0}
               onClick={() => dispatch({ type: "REROLL_DRAFT" })}
             >

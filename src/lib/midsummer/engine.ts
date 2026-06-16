@@ -24,7 +24,7 @@ export interface TitheStep {
   orbs: number;
 }
 /** Single knob to scale the entire tithe curve. Tune from live play. */
-export const DIFFICULTY = 3.5;
+export const DIFFICULTY = 3.2;
 const BASE_TITHE_COSTS = [25, 50, 100, 150, 225, 300, 375, 450, 575, 650, 700, 777];
 const TITHE_SPINS = [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10];
 export const TITHE_SCHEDULE: TitheStep[] = BASE_TITHE_COSTS.map((base, i) => ({

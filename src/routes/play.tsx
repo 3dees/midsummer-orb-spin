@@ -104,6 +104,14 @@ function initialState(): GameState {
   };
 }
 
+function cardBodyText(def: SymbolDef): string {
+  const d = def.description;
+  const m = d.match(/^\+(\d+)\.\s+(.*)$/);
+  if (m) return m[2];
+  if (/^\+(\d+) Light Orbs?\.$/.test(d)) return "";
+  return d;
+}
+
 type Action =
   | { type: "BEGIN_SPIN" }
   | { type: "RESOLVE_SPIN" }

@@ -535,12 +535,13 @@ img.cabinet-frame {
   text-shadow: 0 0 10px rgba(255,200,80,0.95), 0 2px 0 #6a3300;
   pointer-events: none;
   z-index: 6;
-  animation: cell-pop-rise 520ms ease-out forwards;
+  animation: cell-pop-rise 750ms ease-out forwards;
 }
 @keyframes cell-pop-rise {
   0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.85); }
-  25%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
-  100% { opacity: 0; transform: translate(-50%, -34px) scale(1); }
+  18%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+  70%  { opacity: 1; transform: translate(-50%, -24px) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
 }
 
 .reveal-tray {

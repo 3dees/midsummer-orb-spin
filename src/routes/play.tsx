@@ -332,12 +332,12 @@ function PlayPage() {
   const [poolOpen, setPoolOpen] = useState(false);
   // Sequential score reveal (LBaL-style). Purely visual; never mutates score.
   type RevealPhase = "cells" | "rewards" | "total" | "done";
+  type RevealFloat = { id: number; cell: number; value: number };
   const [reveal, setReveal] = useState<{
     idx: number;            // last cell index revealed (-1 before first)
     running: number;        // running total shown in the tray
-    popCell: number | null; // cell currently popping "+N"
-    popValue: number;
-    popKey: number;         // forces remount of the pop element
+    floats: RevealFloat[];  // active "+N" floats; each lingers ~750ms
+    floatSeq: number;       // monotonic id for floats
     phase: RevealPhase;
     spinSerial: number;     // ties reveal to a specific spin
   } | null>(null);
@@ -370,10 +370,10 @@ function PlayPage() {
     if (!isPostSpinPhase) return;
     // Skip animation entirely on zero-score spins.
     if (state.lastScore === 0 && state.lastEvents.length === 0) {
-      setReveal({ idx: GRID_SIZE - 1, running: 0, popCell: null, popValue: 0, popKey: 0, phase: "done", spinSerial: state.totalSpins });
+      setReveal({ idx: GRID_SIZE - 1, running: 0, floats: [], floatSeq: 0, phase: "done", spinSerial: state.totalSpins });
       return;
     }
-    setReveal({ idx: -1, running: 0, popCell: null, popValue: 0, popKey: 0, phase: "cells", spinSerial: state.totalSpins });
+    setReveal({ idx: -1, running: 0, floats: [], floatSeq: 0, phase: "cells", spinSerial: state.totalSpins });
     // Intentionally only on spin transition.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.totalSpins]);
@@ -385,13 +385,13 @@ function PlayPage() {
       if (reveal.idx >= GRID_SIZE - 1) {
         const hasReward = state.lastRewards.rerollOrbs > 0 || state.lastRewards.removalOrbs > 0;
         const t = setTimeout(() => {
-          setReveal((r) => (r ? { ...r, phase: hasReward ? "rewards" : "total", popCell: null, popValue: 0 } : r));
-        }, 220);
+          setReveal((r) => (r ? { ...r, phase: hasReward ? "rewards" : "total" } : r));
+        }, 320);
         return () => clearTimeout(t);
       }
       const nextIdx = reveal.idx + 1;
       const v = state.lastPerCell[nextIdx] ?? 0;
-      const delay = v > 0 ? 90 : 28; // skim past empties
+      const delay = v > 0 ? 140 : 28; // scoring tiles linger; skim past empties
       const t = setTimeout(() => {
         setReveal((r) =>
           r && r.phase === "cells"
@@ -399,9 +399,11 @@ function PlayPage() {
                 ...r,
                 idx: nextIdx,
                 running: r.running + v,
-                popCell: v > 0 ? nextIdx : null,
-                popValue: v,
-                popKey: r.popKey + 1,
+                floats:
+                  v > 0
+                    ? [...r.floats, { id: r.floatSeq + 1, cell: nextIdx, value: v }]
+                    : r.floats,
+                floatSeq: v > 0 ? r.floatSeq + 1 : r.floatSeq,
               }
             : r,
         );
@@ -418,10 +420,22 @@ function PlayPage() {
     }
   }, [reveal, state.lastPerCell, state.lastRewards.rerollOrbs, state.lastRewards.removalOrbs]);
 
+  // Retire floats after their rise animation completes so the list doesn't grow.
+  useEffect(() => {
+    if (!reveal || reveal.floats.length === 0) return;
+    const oldest = reveal.floats[0];
+    const t = setTimeout(() => {
+      setReveal((r) =>
+        r ? { ...r, floats: r.floats.filter((f) => f.id !== oldest.id) } : r,
+      );
+    }, 780);
+    return () => clearTimeout(t);
+  }, [reveal?.floats]);
+
   const skipReveal = useCallback(() => {
     setReveal((r) =>
       r && r.phase !== "done"
-        ? { ...r, idx: GRID_SIZE - 1, running: state.lastScore, popCell: null, popValue: 0, phase: "done" }
+        ? { ...r, idx: GRID_SIZE - 1, running: state.lastScore, floats: [], phase: "done" }
         : r,
     );
   }, [state.lastScore]);
@@ -527,9 +541,7 @@ function PlayPage() {
             );
           }}
           onChipClick={onTooltipChip}
-          revealPopCell={reveal && reveal.phase === "cells" ? reveal.popCell : null}
-          revealPopValue={reveal ? reveal.popValue : 0}
-          revealPopKey={reveal ? reveal.popKey : 0}
+          revealFloats={reveal ? reveal.floats : []}
           acornCountdown={Math.max(0, 5 - (minAgeById["acorn"] ?? 0))}
           titheRound={state.titheRound + 1}
           orbs={state.orbs}
@@ -892,9 +904,7 @@ function SlotFrame(props: {
   openTooltipCell: number | null;
   onCellClick: (idx: number, hasSymbol: boolean) => void;
   onChipClick: (g: SynergyGroupId) => void;
-  revealPopCell: number | null;
-  revealPopValue: number;
-  revealPopKey: number;
+  revealFloats: { id: number; cell: number; value: number }[];
   acornCountdown: number;
   titheRound: number;
   orbs: number;
@@ -1058,11 +1068,13 @@ function SlotFrame(props: {
               className={`cell ${isHot ? "cell-hot" : ""} ${isHi ? "cell-grouped" : ""}`}
               onClick={(e) => { e.stopPropagation(); props.onCellClick(i, true); }}
             >
-              {props.revealPopCell === i && props.revealPopValue > 0 && (
-                <div key={props.revealPopKey} className="cell-pop">
-                  +{props.revealPopValue}
-                </div>
-              )}
+              {props.revealFloats
+                .filter((f) => f.cell === i)
+                .map((f) => (
+                  <div key={f.id} className="cell-pop">
+                    +{f.value}
+                  </div>
+                ))}
               {def.sprite ? (
                 <img
                   key={`${id}-${i}-${props.spinning ? "s" : "r"}`}
@@ -1130,9 +1142,8 @@ function SpinBar(props: {
   reveal: {
     idx: number;
     running: number;
-    popCell: number | null;
-    popValue: number;
-    popKey: number;
+    floats: { id: number; cell: number; value: number }[];
+    floatSeq: number;
     phase: "cells" | "rewards" | "total" | "done";
     spinSerial: number;
   } | null;

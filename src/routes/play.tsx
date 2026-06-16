@@ -572,7 +572,7 @@ function PlayPage() {
 
       {/* Overlays */}
       {poolOpen && (
-        <Overlay>
+        <Overlay elevated>
           <h2 className="overlay-title">Bag</h2>
           <div className="inventory-totals">
             <div className="inventory-total-row">
@@ -745,6 +745,13 @@ function PlayPage() {
             })}
           </div>
           <div className="draft-actions">
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setPoolOpen(true)}
+            >
+              Bag ({state.pool.length})
+            </button>
             <button
               type="button"
               className="ghost-btn"
@@ -1193,9 +1200,9 @@ function SpinBar(props: {
   );
 }
 
-function Overlay(props: { children: React.ReactNode }) {
+function Overlay(props: { children: React.ReactNode; elevated?: boolean }) {
   return (
-    <div className="overlay animate-fade-in">
+    <div className="overlay animate-fade-in" style={props.elevated ? { zIndex: 60 } : undefined}>
       <div className="overlay-card">{props.children}</div>
     </div>
   );

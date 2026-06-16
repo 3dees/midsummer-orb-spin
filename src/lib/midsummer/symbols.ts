@@ -138,7 +138,7 @@ export const SYNERGY_GROUPS = {
   wild_garden:     { name: "Wild Garden",         members: ["wild_rose","foxglove","dewdrop","dandelion","babys_breath"] as SymbolId[] },
   murder_of_crows: { name: "Murder of Crows",     members: ["crow"] as SymbolId[] },
   green_blessing:  { name: "Green Man Blessing",  members: ["green_man","fern","mushroom","acorn","oak_leaf","dewdrop","foxglove","wild_rose","dandelion","babys_breath","sundew"] as SymbolId[] },
-  last_light:      { name: "Last Light",          members: ["golden_stag","sundew","sunbeam","bonfire","solstice_coin"] as SymbolId[] },
+  last_light:      { name: "Rising Light",        members: ["golden_stag","sundew","sunbeam","bonfire","solstice_coin"] as SymbolId[] },
 } as const;
 export type SynergyGroupId = keyof typeof SYNERGY_GROUPS;
 
@@ -288,7 +288,6 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     baseValue: 2, tags: ["solar"],
     synergies: [
       { type: "globalBonus", targets: ["solar"], bonus: 1, description: "+1 for each other Solar symbol on grid" },
-      { type: "roundPenalty", roundType: "odd", multiplier: 0.5, description: "Value halved on odd rounds — the light is fading" },
     ],
   }),
 

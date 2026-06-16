@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import backgroundAsset from "@/assets/background.png.asset.json";
 import crownImg from "@/assets/sprites/crown.png";
 import orbImg from "@/assets/sprites/orb.png";
+import flameImg from "@/assets/sprites/flame.png";
 import cabinetImg from "@/assets/cabinet_clean.png";
 
 import {
@@ -498,6 +499,7 @@ function PlayPage() {
       {/* Forest backdrop */}
       <div
         className="midsummer-bg"
+        data-season={seasonIndexForRound(state.titheRound + 1)}
         style={{ backgroundImage: `url(${backgroundAsset.url})` }}
         aria-hidden
       />
@@ -785,9 +787,9 @@ function PlayPage() {
 
       {state.phase.kind === "win" && !overlaysGated && (
         <Overlay>
-          <img src={crownImg} alt="" className="pixelart crown" />
+          <img src={flameImg} alt="" className="pixelart crown" />
           <h2 className="overlay-title">Crowned of Midsummer</h2>
-          <p className="overlay-sub">All three tithes paid. The wood remembers your name.</p>
+          <p className="overlay-sub">You kept the light alive to the longest day. The solstice fire is lit.</p>
           <button className="primary-btn" onClick={() => dispatch({ type: "RESTART" })}>
             New run
           </button>
@@ -867,10 +869,17 @@ const SHOW_GRID_DEBUG = false; // flip to true to re-check alignment
 
 function seasonForRound(round: number): string {
   if (round <= 3) return "Spring";
-  if (round <= 6) return "Midsummer";
-  if (round <= 9) return "Late Summer";
-  if (round <= 12) return "Dawn";
+  if (round <= 6) return "Early Summer";
+  if (round <= 9) return "High Summer";
+  if (round <= 12) return "Midsummer";
   return "Endless";
+}
+
+function seasonIndexForRound(round: number): number {
+  if (round <= 3) return 0;
+  if (round <= 6) return 1;
+  if (round <= 9) return 2;
+  return 3;
 }
 
 function TitheMeter(props: {

@@ -976,3 +976,71 @@ img.cabinet-frame {
   display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
   margin-top: 6px;
 }
+
+/* Header removal-orb button + inventory modal ----------------- */
+.stat.stat-button {
+  background: rgba(20, 10, 30, 0.45);
+  border: 1px solid rgba(255, 200, 120, 0.25);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.stat.stat-button:hover {
+  background: rgba(255, 120, 120, 0.18);
+  border-color: rgba(255, 160, 160, 0.6);
+  transform: translateY(-1px);
+}
+
+.inventory-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+  margin: 4px 0 10px;
+}
+.inventory-total-row {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 10px;
+  background: rgba(20, 10, 30, 0.45);
+  border: 1px solid rgba(125, 255, 182, 0.18);
+  border-radius: 8px;
+}
+.inventory-total-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255, 231, 168, 0.75);
+}
+.inventory-total-value {
+  font-weight: 700; color: #ffe7a8; margin-top: 2px;
+}
+.inventory-total-row.is-stub {
+  opacity: 0.45;
+  border-style: dashed;
+}
+.inventory-total-row.is-stub .inventory-total-value {
+  font-size: 11px; font-style: italic; color: rgba(255, 231, 168, 0.6);
+}
+.inventory-orb-chip {
+  grid-column: 1 / -1;
+  display: inline-flex; align-items: center; gap: 8px;
+  justify-content: center;
+  padding: 6px 12px;
+  background: rgba(255, 120, 120, 0.12);
+  border: 1px solid rgba(255, 160, 160, 0.5);
+  border-radius: 8px;
+  color: #ffd0d0;
+  font-weight: 600;
+  cursor: default;
+}
+.inventory-orb-chip.is-empty {
+  background: rgba(40, 20, 30, 0.35);
+  border-color: rgba(255, 160, 160, 0.2);
+  color: rgba(255, 208, 208, 0.55);
+}
+.inventory-orb-icon { font-size: 14px; }
+.inventory-orb-count { font-size: 16px; font-weight: 800; }
+.inventory-orb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.tithe-bonus { color: #ffd0d0; font-weight: 600; }

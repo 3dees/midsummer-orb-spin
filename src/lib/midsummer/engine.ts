@@ -23,20 +23,17 @@ export interface TitheStep {
   spins: number;
   orbs: number;
 }
-export const TITHE_SCHEDULE: TitheStep[] = [
-  { spins: 5, orbs: 35 },
-  { spins: 5, orbs: 70 },
-  { spins: 6, orbs: 135 },
-  { spins: 6, orbs: 205 },
-  { spins: 7, orbs: 305 },
-  { spins: 7, orbs: 405 },
-  { spins: 8, orbs: 505 },
-  { spins: 8, orbs: 610 },
-  { spins: 9, orbs: 775 },
-  { spins: 9, orbs: 880 },
-  { spins: 10, orbs: 945 },
-  { spins: 10, orbs: 1050 },
-];
+/** Single knob to scale the entire tithe curve. Tune from live play. */
+export const DIFFICULTY = 2.2;
+const BASE_TITHE_COSTS = [25, 50, 100, 150, 225, 300, 375, 450, 575, 650, 700, 777];
+const TITHE_SPINS = [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10];
+export const TITHE_SCHEDULE: TitheStep[] = BASE_TITHE_COSTS.map((base, i) => ({
+  spins: TITHE_SPINS[i],
+  orbs: Math.round(base * DIFFICULTY),
+}));
+
+/** Max Removal Orbs the player can stockpile — extras are wasted. */
+export const REMOVAL_ORB_CAP = 3;
 
 /** A single physical tile in the player's bag — ages independently. */
 export interface PoolTile {

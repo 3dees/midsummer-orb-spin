@@ -191,7 +191,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "firefly", name: "Firefly", rarity: "common", emoji: "✨", sprite: fireflyImg,
     baseValue: 1, tags: ["nocturnal"],
     synergies: [
-      { type: "adjacentBonus", targets: ["moth", "lantern"], bonus: 1, description: "+1 for each adjacent Moth or Lantern" },
+      { type: "adjacentBonus", targets: ["moth", "lantern"], bonus: 2, description: "+2 for each adjacent Moth or Lantern" },
     ],
   }),
 
@@ -199,7 +199,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "fern", name: "Fern", rarity: "common", emoji: "🌿", sprite: fernImg,
     baseValue: 1, tags: ["forest_floor"],
     synergies: [
-      { type: "adjacentBonus", targets: ["forest_floor"], bonus: 1, description: "+1 for each adjacent Forest Floor symbol" },
+      { type: "adjacentBonus", targets: ["forest_floor"], bonus: 2, description: "+2 for each adjacent Forest Floor symbol" },
     ],
   }),
 
@@ -223,7 +223,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "dewdrop", name: "Dewdrop", rarity: "common", emoji: "💧", sprite: dewdropImg,
     baseValue: 1, tags: ["flower"],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower"], bonus: 2, description: "+2 if adjacent to any Flower symbol" },
+      { type: "adjacentBonus", targets: ["flower"], bonus: 4, description: "+4 if adjacent to any Flower symbol" },
     ],
   }),
 
@@ -231,7 +231,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "moth", name: "Moth", rarity: "common", emoji: "🦋", sprite: mothImg,
     baseValue: 2, tags: ["nocturnal"],
     synergies: [
-      { type: "adjacentBonus", targets: ["firefly"], bonus: 1, description: "+1 for each adjacent Firefly" },
+      { type: "adjacentBonus", targets: ["firefly"], bonus: 2, description: "+2 for each adjacent Firefly" },
     ],
   }),
 
@@ -263,7 +263,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "berry", name: "Berry", rarity: "common", emoji: "🫐", sprite: berryImg,
     baseValue: 1, tags: ["forest_floor"],
     synergies: [
-      { type: "adjacentBonus", targets: ["berry", "hedgehog"], bonus: 1, description: "+1 for each adjacent Berry or Hedgehog" },
+      { type: "adjacentBonus", targets: ["berry", "hedgehog"], bonus: 2, description: "+2 for each adjacent Berry or Hedgehog" },
     ],
   }),
 
@@ -296,8 +296,8 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "babys_breath", name: "Baby's Breath", rarity: "common", emoji: "🤍", sprite: babysBreathImg,
     baseValue: 1, tags: ["flower"],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower"], bonus: 1, description: "+1 for each adjacent Flower symbol" },
-      { type: "adjacentBonus", targets: ["dewdrop"], bonus: 2, description: "+2 if adjacent to Dewdrop" },
+      { type: "adjacentBonus", targets: ["flower"], bonus: 2, description: "+2 for each adjacent Flower symbol" },
+      { type: "adjacentBonus", targets: ["dewdrop"], bonus: 4, description: "+4 if adjacent to Dewdrop" },
     ],
   }),
 
@@ -305,7 +305,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "fairy_cloud", name: "Fairy Cloud", rarity: "common", emoji: "☁️", sprite: fairyCloudImg,
     baseValue: 1, tags: [],
     synergies: [
-      { type: "adjacentBonus", targets: ["nocturnal", "fae_wings"], bonus: 1, description: "+1 for each adjacent Nocturnal or Fae Wings symbol" },
+      { type: "adjacentBonus", targets: ["nocturnal", "fae_wings"], bonus: 2, description: "+2 for each adjacent Nocturnal or Fae Wings symbol" },
       { type: "passive", effect: "row_adjacent", description: "Counts as adjacent to all symbols in same row (v2)" },
     ],
   }),
@@ -336,7 +336,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "honeybee", name: "Honeybee", rarity: "uncommon", emoji: "🐝", sprite: honeybeeImg,
     baseValue: 3, tags: ["creature"],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower"], bonus: 2, description: "+2 for each adjacent Flower symbol" },
+      { type: "adjacentBonus", targets: ["flower"], bonus: 4, description: "+4 for each adjacent Flower symbol" },
     ],
   }),
 
@@ -361,7 +361,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "foxglove", name: "Foxglove", rarity: "uncommon", emoji: "💜", sprite: foxgloveImg,
     baseValue: 2, tags: ["flower"],
     synergies: [
-      { type: "adjacentBonus", targets: ["honeybee"], bonus: 2, description: "+2 for each adjacent Honeybee" },
+      { type: "adjacentBonus", targets: ["honeybee"], bonus: 4, description: "+4 for each adjacent Honeybee" },
       { type: "globalReward", requires: "beehive", reward: "reroll_orb", amount: 1, description: "+1 Reroll Orb if Beehive is on grid" },
     ],
   }),
@@ -370,7 +370,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "oak_leaf", name: "Oak Leaf", rarity: "uncommon", emoji: "🍂", sprite: leafImg,
     baseValue: 3, tags: ["forest_floor"],
     synergies: [
-      { type: "adjacentBonus", targets: ["forest_floor"], bonus: 1, description: "+1 for each adjacent Forest Floor symbol" },
+      { type: "adjacentBonus", targets: ["forest_floor"], bonus: 2, description: "+2 for each adjacent Forest Floor symbol" },
       { type: "transform", transformInto: "ancient_oak", afterSpins: 8, description: "Becomes Ancient Oak after 8 spins (v2)" },
     ],
   }),
@@ -387,7 +387,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "hedgehog", name: "Hedgehog", rarity: "uncommon", emoji: "🦔", sprite: hedgehogImg,
     baseValue: 2, tags: ["creature", "forest_floor"],
     synergies: [
-      { type: "adjacentBonus", targets: ["berry"], bonus: 1, description: "+1 for each adjacent Berry" },
+      { type: "adjacentBonus", targets: ["berry"], bonus: 2, description: "+2 for each adjacent Berry" },
       { type: "passive", effect: "destruction_immune", description: "Immune to symbol destruction (v2)" },
     ],
   }),
@@ -396,8 +396,8 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "wild_rose", name: "Wild Rose", rarity: "uncommon", emoji: "🌹", sprite: wildRoseImg,
     baseValue: 2, tags: ["flower"],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower"], bonus: 1, description: "+1 for each adjacent Flower symbol" },
-      { type: "adjacentBonus", targets: ["antler_crown"], bonus: 3, description: "+3 if adjacent to Antler Crown" },
+      { type: "adjacentBonus", targets: ["flower"], bonus: 2, description: "+2 for each adjacent Flower symbol" },
+      { type: "adjacentBonus", targets: ["antler_crown"], bonus: 6, description: "+6 if adjacent to Antler Crown" },
     ],
   }),
 
@@ -406,7 +406,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     baseValue: 3, tags: [],
     synergies: [
       { type: "periodicReward", every: 1, reward: "reroll_orb", amount: 1, description: "Gives 1 Reroll Orb per spin" },
-      { type: "adjacentBonus", targets: ["glowing_wisp"], bonus: 3, description: "+3 if adjacent to Glowing Wisp" },
+      { type: "adjacentBonus", targets: ["glowing_wisp"], bonus: 6, description: "+6 if adjacent to Glowing Wisp" },
     ],
   }),
 
@@ -414,7 +414,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "rowan_wand", name: "Rowan Wand", rarity: "uncommon", emoji: "🪄", sprite: wandImg,
     baseValue: 3, tags: [],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower", "nocturnal"], bonus: 2, description: "+2 per adjacent Flower or Nocturnal symbol" },
+      { type: "adjacentBonus", targets: ["flower", "nocturnal"], bonus: 4, description: "+4 per adjacent Flower or Nocturnal symbol" },
     ],
   }),
 
@@ -431,7 +431,7 @@ export const SYMBOLS: Record<SymbolId, SymbolDef> = {
     id: "sundew", name: "Sundew", rarity: "uncommon", emoji: "🌱", sprite: sundewImg,
     baseValue: 3, tags: ["flower", "solar"],
     synergies: [
-      { type: "adjacentBonus", targets: ["flower"], bonus: 1, description: "+1 for each adjacent Flower symbol" },
+      { type: "adjacentBonus", targets: ["flower"], bonus: 2, description: "+2 for each adjacent Flower symbol" },
       { type: "destroyAdjacent", targets: ["creature"], bonus: 4, description: "Consumes an adjacent Creature for +4 Orbs (v2)" },
     ],
   }),

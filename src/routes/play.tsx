@@ -1127,22 +1127,49 @@ function SpinBar(props: {
   canSpin: boolean;
   onSpin: () => void;
   spinning: boolean;
-  floatScore: { value: number; key: number } | null;
+  reveal: {
+    idx: number;
+    running: number;
+    popCell: number | null;
+    popValue: number;
+    popKey: number;
+    phase: "cells" | "rewards" | "total" | "done";
+    spinSerial: number;
+  } | null;
+  finalScore: number;
+  rewards: { rerollOrbs: number; removalOrbs: number };
   pool: PoolTile[];
   onViewPool: () => void;
 }) {
+  const r = props.reveal;
+  const showTray = r != null;
+  const flashTotal = r?.phase === "total";
+  const showRewards = r?.phase === "rewards" || r?.phase === "total";
+  const displayValue = r?.phase === "done" ? r.running : r?.running ?? 0;
   return (
     <div className="spin-bar">
+      {showTray && (
+        <div className={`reveal-tray ${flashTotal ? "is-flash" : ""}`}>
+          <span className="reveal-tray-total">
+            +{displayValue}
+            <img src={orbImg} alt="" className="pixelart reveal-tray-orb" />
+          </span>
+          {showRewards && (props.rewards.rerollOrbs > 0 || props.rewards.removalOrbs > 0) && (
+            <span className="reveal-tray-rewards">
+              {props.rewards.rerollOrbs > 0 && (
+                <span className="reveal-tray-chip">+{props.rewards.rerollOrbs} ↺</span>
+              )}
+              {props.rewards.removalOrbs > 0 && (
+                <span className="reveal-tray-chip">+{props.rewards.removalOrbs} ✕</span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
       <button className="view-pool-btn" onClick={props.onViewPool}>
         Bag ({props.pool.length})
       </button>
       <div className="spin-button-wrap">
-        {props.floatScore && (
-          <div key={props.floatScore.key} className="float-score">
-            +{props.floatScore.value}
-            <img src={orbImg} alt="" className="pixelart float-orb" />
-          </div>
-        )}
         <button
           className="spin-btn"
           onClick={props.onSpin}

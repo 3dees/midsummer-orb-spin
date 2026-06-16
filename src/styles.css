@@ -418,8 +418,8 @@ img.cabinet-frame {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
-.cell-sprite.settled { animation: cell-drop 0.35s ease-out both; }
-.cell-sprite.spinning { animation: cell-spin 0.5s linear infinite; opacity: 0.55; }
+.cell-sprite.settled { animation: cell-drop 0.35s ease-out both; filter: blur(0); }
+.cell-sprite.spinning { animation: cell-spin 0.5s linear infinite; opacity: 0.55; filter: blur(3px); }
 .cell-empty {
   background: transparent;
   border-color: transparent;
@@ -718,8 +718,8 @@ img.cabinet-frame {
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
   user-select: none;
 }
-.cell-emoji.settled { animation: cell-drop 0.35s ease-out both; }
-.cell-emoji.spinning { animation: cell-spin 0.5s linear infinite; opacity: 0.55; }
+.cell-emoji.settled { animation: cell-drop 0.35s ease-out both; filter: blur(0); }
+.cell-emoji.spinning { animation: cell-spin 0.5s linear infinite; opacity: 0.55; filter: blur(3px); }
 .pool-grid-emoji,
 .draft-emoji {
   font-size: 36px;

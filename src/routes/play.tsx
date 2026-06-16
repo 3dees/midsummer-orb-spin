@@ -627,7 +627,8 @@ function PlayPage() {
                   )}
                   <div className="draft-name">{def.name}</div>
                   <div className={`draft-rarity rarity-${def.rarity}`}>{rarityLabel}</div>
-                  <div className="draft-desc">{def.description}</div>
+                  <div className="draft-points">+{def.baseValue} ◐</div>
+                  <div className="draft-desc">{cardBodyText(def)}</div>
                   {groups.length > 0 && (
                     <div className="draft-groups">
                       {groups.map((g) => (

@@ -1085,7 +1085,7 @@ function SymbolTooltip(props: {
         </div>
       </div>
       <div className="symbol-tip-base">Base: +{def.baseValue} ◐</div>
-      <div className="symbol-tip-desc">{def.description}</div>
+      <div className="symbol-tip-desc">{cardBodyText(def)}</div>
       {props.extra && <div className="symbol-tip-extra">⏳ {props.extra}</div>}
       {groups.length > 0 && (
         <div className="symbol-tip-groups">

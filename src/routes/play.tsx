@@ -904,9 +904,7 @@ function SlotFrame(props: {
   openTooltipCell: number | null;
   onCellClick: (idx: number, hasSymbol: boolean) => void;
   onChipClick: (g: SynergyGroupId) => void;
-  revealPopCell: number | null;
-  revealPopValue: number;
-  revealPopKey: number;
+  revealFloats: { id: number; cell: number; value: number }[];
   acornCountdown: number;
   titheRound: number;
   orbs: number;

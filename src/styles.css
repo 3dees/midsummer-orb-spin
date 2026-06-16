@@ -527,8 +527,8 @@ img.cabinet-frame {
 .cell-pop {
   position: absolute;
   left: 50%;
-  top: 8%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 20px;
   font-weight: 800;
   color: #fff3c5;
@@ -538,10 +538,10 @@ img.cabinet-frame {
   animation: cell-pop-rise 750ms ease-out forwards;
 }
 @keyframes cell-pop-rise {
-  0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.85); }
-  18%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
-  70%  { opacity: 1; transform: translate(-50%, -24px) scale(1.05); }
-  100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+  0%   { opacity: 0; transform: translate(-50%, calc(-50% + 14px)) scale(0.85); }
+  18%  { opacity: 1; transform: translate(-50%, calc(-50% + 4px)) scale(1.15); }
+  70%  { opacity: 1; transform: translate(-50%, calc(-50% - 8px)) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, calc(-50% - 18px)) scale(1); }
 }
 
 .reveal-tray {

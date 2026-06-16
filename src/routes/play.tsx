@@ -121,7 +121,7 @@ type Action =
   | { type: "PICK_DRAFT"; id: SymbolId }
   | { type: "REROLL_DRAFT" }
   | { type: "SKIP_DRAFT" }
-  | { type: "REMOVE_FROM_POOL"; id: SymbolId }
+  | { type: "REMOVE_FROM_POOL"; uid: string }
   | { type: "ACK_GREEN_MAN" }
   | { type: "RESTART" };
 
@@ -129,9 +129,12 @@ function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "BEGIN_SPIN": {
       if (state.phase.kind !== "idle") return state;
+      // Throwaway scrambled grid shown only during the spin animation.
+      // The real grid is rolled, scored, AND displayed in RESOLVE_SPIN.
+      const scrambleGrid = rollGrid(state.pool);
       return {
         ...state,
-        grid: rollGrid(state.pool),
+        grid: scrambleGrid,
         contributingCells: new Set(),
         lastScore: 0,
         lastEvents: [],
@@ -182,7 +185,7 @@ function reducer(state: GameState, action: Action): GameState {
       const base: GameState = {
         ...state,
         pool: nextPool,
-        grid: displayedGrid,
+        grid: displayedGrid, // same grid that was scored (finalGrid), with tiles aged/transformed
         orbs: nextOrbs,
         rerollOrbs: nextRerollOrbs,
         removalOrbs: nextRemovalOrbs,
@@ -262,7 +265,7 @@ function reducer(state: GameState, action: Action): GameState {
       // Discarding is purely player-initiated from the Inventory modal.
       // Allowed any time the modal is open (idle phase only).
       if (state.phase.kind !== "idle") return state;
-      const idx = state.pool.findIndex((t) => t.id === action.id);
+      const idx = state.pool.findIndex((t) => t.uid === action.uid);
       if (idx < 0) return state;
       const nextPool = state.pool.slice();
       nextPool.splice(idx, 1);
@@ -622,7 +625,8 @@ function PlayPage() {
                   onClick={(e) => {
                     e.stopPropagation();
                     if (canDiscard) {
-                      dispatch({ type: "REMOVE_FROM_POOL", id });
+                      const tile = state.pool.filter((t) => t.id === id).sort((a, b) => a.age - b.age)[0];
+                      if (tile) dispatch({ type: "REMOVE_FROM_POOL", uid: tile.uid });
                       return;
                     }
                     setTooltip((cur) =>
@@ -950,7 +954,9 @@ function SlotFrame(props: {
         "--sprite-px": computedFrameStyles.getPropertyValue("--sprite-px").trim(),
       },
     };
-    console.log(`[SlotFrame] cabinet layout calibration ${JSON.stringify(payload)}`);
+    if (import.meta.env.DEV) {
+      console.log(`[SlotFrame] cabinet layout calibration ${JSON.stringify(payload)}`);
+    }
     hasLoggedCabinetLayoutRef.current = true;
   }, []);
 

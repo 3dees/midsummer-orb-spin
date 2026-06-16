@@ -572,7 +572,7 @@ function PlayPage() {
 
       {/* Overlays */}
       {poolOpen && (
-        <Overlay>
+        <Overlay elevated>
           <h2 className="overlay-title">Bag</h2>
           <div className="inventory-totals">
             <div className="inventory-total-row">

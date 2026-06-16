@@ -20,6 +20,7 @@ import {
 import {
   GRID_COLS,
   GRID_SIZE,
+  REMOVAL_ORB_CAP,
   TITHE_SCHEDULE,
   type PoolTile,
   type SpinEvent,
@@ -47,6 +48,7 @@ type Phase =
   | { kind: "spinning" }
   | { kind: "tithe-passed"; round: number }
   | { kind: "tithe-failed"; round: number; orbs: number; required: number }
+  | { kind: "tithe-removal"; draftOffers: SymbolId[] }
   | { kind: "draft"; offers: SymbolId[] }
   | { kind: "green-man-upgrade"; from: SymbolId[]; to: SymbolId[] }
   | { kind: "win" }
@@ -99,8 +101,12 @@ type Action =
   | { type: "BEGIN_SPIN" }
   | { type: "RESOLVE_SPIN" }
   | { type: "ACK_TITHE_PASS" }
+  | { type: "SKIP_TITHE_REMOVAL" }
+  | { type: "TAKE_TITHE_REMOVAL"; id: SymbolId }
   | { type: "PICK_DRAFT"; id: SymbolId }
+  | { type: "REROLL_DRAFT" }
   | { type: "SKIP_DRAFT" }
+  | { type: "REMOVE_FROM_POOL"; id: SymbolId }
   | { type: "ACK_GREEN_MAN" }
   | { type: "RESTART" };
 
@@ -151,7 +157,10 @@ function reducer(state: GameState, action: Action): GameState {
       const nextSpin = state.spinInCycle + 1;
       const nextOrbs = state.orbs + score.orbs;
       const nextRerollOrbs = state.rerollOrbs + score.rerollOrbsGained;
-      const nextRemovalOrbs = state.removalOrbs + score.removalOrbsGained;
+      const nextRemovalOrbs = Math.min(
+        REMOVAL_ORB_CAP,
+        state.removalOrbs + score.removalOrbsGained,
+      );
       const draftOffers = pickDraft(DRAFT_POOL, state.titheRound);
 
       const base: GameState = {
@@ -204,6 +213,7 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "ACK_TITHE_PASS": {
       // Subtract the paid tithe cost (surplus carries over) and advance round.
+      // Offer one FREE pool removal before the next draft.
       const paidStep = TITHE_SCHEDULE[state.titheRound];
       const remainingOrbs = Math.max(0, state.orbs - (paidStep?.orbs ?? 0));
       const draftOffers = pickDraft(DRAFT_POOL, state.titheRound + 1);
@@ -212,8 +222,58 @@ function reducer(state: GameState, action: Action): GameState {
         orbs: remainingOrbs,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
+        phase: { kind: "tithe-removal", draftOffers },
+      };
+    }
+    case "SKIP_TITHE_REMOVAL": {
+      if (state.phase.kind !== "tithe-removal") return state;
+      const draftOffers = state.phase.draftOffers;
+      return {
+        ...state,
         phase: { kind: "draft", offers: draftOffers },
         lastDraft: { offers: draftOffers, picked: null },
+      };
+    }
+    case "TAKE_TITHE_REMOVAL": {
+      if (state.phase.kind !== "tithe-removal") return state;
+      const draftOffers = state.phase.draftOffers;
+      const idx = state.pool.findIndex((t) => t.id === action.id);
+      if (idx < 0) return state;
+      const nextPool = state.pool.slice();
+      nextPool.splice(idx, 1);
+      return {
+        ...state,
+        pool: nextPool,
+        grid: rollGrid(nextPool),
+        destroyedThisRun: state.destroyedThisRun + 1,
+        phase: { kind: "draft", offers: draftOffers },
+        lastDraft: { offers: draftOffers, picked: null },
+      };
+    }
+    case "REROLL_DRAFT": {
+      if (state.phase.kind !== "draft") return state;
+      if (state.rerollOrbs <= 0) return state;
+      const offers = pickDraft(DRAFT_POOL, state.titheRound);
+      return {
+        ...state,
+        rerollOrbs: state.rerollOrbs - 1,
+        phase: { kind: "draft", offers },
+        lastDraft: { offers, picked: null },
+      };
+    }
+    case "REMOVE_FROM_POOL": {
+      if (state.removalOrbs <= 0) return state;
+      if (state.phase.kind !== "idle") return state;
+      const idx = state.pool.findIndex((t) => t.id === action.id);
+      if (idx < 0) return state;
+      const nextPool = state.pool.slice();
+      nextPool.splice(idx, 1);
+      return {
+        ...state,
+        pool: nextPool,
+        grid: rollGrid(nextPool),
+        removalOrbs: state.removalOrbs - 1,
+        destroyedThisRun: state.destroyedThisRun + 1,
       };
     }
     case "PICK_DRAFT": {
@@ -273,6 +333,7 @@ function PlayPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [floatScore, setFloatScore] = useState<{ value: number; key: number } | null>(null);
   const [poolOpen, setPoolOpen] = useState(false);
+  const [removeMode, setRemoveMode] = useState(false);
   const [tooltip, setTooltip] = useState<
     | { kind: "cell"; index: number }
     | { kind: "pool"; id: SymbolId }
@@ -308,6 +369,11 @@ function PlayPage() {
     setTooltip(null);
     dispatch({ type: "BEGIN_SPIN" });
   }, []);
+
+  // Auto-exit remove mode when orbs hit 0 or overlay closes.
+  useEffect(() => {
+    if (state.removalOrbs <= 0) setRemoveMode(false);
+  }, [state.removalOrbs]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -401,6 +467,11 @@ function PlayPage() {
           floatScore={floatScore}
           pool={state.pool}
           onViewPool={() => setPoolOpen(true)}
+          removalOrbs={state.removalOrbs}
+          onRemove={() => {
+            setRemoveMode(true);
+            setPoolOpen(true);
+          }}
         />
 
         <SpinLog
@@ -416,6 +487,12 @@ function PlayPage() {
       {poolOpen && (
         <Overlay>
           <h2 className="overlay-title">Your symbol pool</h2>
+          {removeMode && (
+            <p className="overlay-sub">
+              Click a symbol to remove it permanently. Costs 1 ✕ Removal Orb
+              ({state.removalOrbs} left).
+            </p>
+          )}
           <div className="pool-grid">
             {poolCounts(state.pool).map(([id, count]) => {
               const def = SYMBOLS[id];
@@ -424,9 +501,13 @@ function PlayPage() {
               return (
                 <div
                   key={id}
-                  className={`pool-grid-chip ${isHi ? "cell-grouped" : ""} ${open ? "tip-open" : ""}`}
+                  className={`pool-grid-chip ${isHi ? "cell-grouped" : ""} ${open ? "tip-open" : ""} ${removeMode ? "removable" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (removeMode && state.removalOrbs > 0) {
+                      dispatch({ type: "REMOVE_FROM_POOL", id });
+                      return;
+                    }
                     setTooltip((cur) =>
                       cur && cur.kind === "pool" && cur.id === id ? null : { kind: "pool", id },
                     );
@@ -455,7 +536,16 @@ function PlayPage() {
               );
             })}
           </div>
-          <button className="primary-btn" onClick={() => { setPoolOpen(false); setTooltip(null); }}>Close</button>
+          <div className="pool-actions">
+            <button
+              className={`ghost-btn ${removeMode ? "active" : ""}`}
+              disabled={state.removalOrbs <= 0}
+              onClick={() => setRemoveMode((v) => !v)}
+            >
+              {removeMode ? "Done removing" : `Remove a symbol (✕ ${state.removalOrbs})`}
+            </button>
+            <button className="primary-btn" onClick={() => { setPoolOpen(false); setTooltip(null); setRemoveMode(false); }}>Close</button>
+          </div>
         </Overlay>
       )}
 
@@ -471,6 +561,40 @@ function PlayPage() {
             onClick={() => dispatch({ type: "ACK_TITHE_PASS" })}
           >
             Continue
+          </button>
+        </Overlay>
+      )}
+
+      {state.phase.kind === "tithe-removal" && (
+        <Overlay>
+          <h2 className="overlay-title">Thin your pool</h2>
+          <p className="overlay-sub">
+            The tithe is paid. Cut one symbol from your bag for free, or keep
+            them all.
+          </p>
+          <div className="pool-grid">
+            {poolCounts(state.pool).map(([id, count]) => {
+              const def = SYMBOLS[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="pool-grid-chip removable"
+                  onClick={(e) => { e.stopPropagation(); dispatch({ type: "TAKE_TITHE_REMOVAL", id }); }}
+                >
+                  {def.sprite ? (
+                    <img src={def.sprite} alt={def.name} className="pixelart" />
+                  ) : (
+                    <span className="pool-grid-emoji" aria-hidden>{def.emoji}</span>
+                  )}
+                  <span className="pool-grid-count">×{count}</span>
+                  <span className="pool-grid-name">{def.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_TITHE_REMOVAL" })}>
+            Skip — keep pool as is
           </button>
         </Overlay>
       )}
@@ -541,9 +665,19 @@ function PlayPage() {
               );
             })}
           </div>
-          <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
-            Skip — keep pool lean
-          </button>
+          <div className="draft-actions">
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={state.rerollOrbs <= 0}
+              onClick={() => dispatch({ type: "REROLL_DRAFT" })}
+            >
+              Reroll ↺ {state.rerollOrbs}
+            </button>
+            <button className="ghost-btn" onClick={() => dispatch({ type: "SKIP_DRAFT" })}>
+              Skip — keep pool lean
+            </button>
+          </div>
         </Overlay>
       )}
 
@@ -912,11 +1046,21 @@ function SpinBar(props: {
   floatScore: { value: number; key: number } | null;
   pool: PoolTile[];
   onViewPool: () => void;
+  removalOrbs: number;
+  onRemove: () => void;
 }) {
   return (
     <div className="spin-bar">
       <button className="view-pool-btn" onClick={props.onViewPool}>
         View pool ({props.pool.length})
+      </button>
+      <button
+        className="view-pool-btn"
+        onClick={props.onRemove}
+        disabled={props.removalOrbs <= 0}
+        title="Spend a Removal Orb to permanently cut a symbol from your pool"
+      >
+        Remove ✕ {props.removalOrbs}
       </button>
       <div className="spin-button-wrap">
         {props.floatScore && (

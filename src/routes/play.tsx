@@ -30,6 +30,7 @@ import {
   rollGrid,
   scoreGrid,
 } from "@/lib/midsummer/engine";
+import { FEATURES } from "@/lib/midsummer/features";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -48,7 +49,6 @@ type Phase =
   | { kind: "spinning" }
   | { kind: "tithe-passed"; round: number }
   | { kind: "tithe-failed"; round: number; orbs: number; required: number }
-  | { kind: "tithe-removal"; draftOffers: SymbolId[] }
   | { kind: "draft"; offers: SymbolId[] }
   | { kind: "green-man-upgrade"; from: SymbolId[]; to: SymbolId[] }
   | { kind: "win" }
@@ -59,6 +59,10 @@ interface GameState {
   rerollOrbs: number;
   removalOrbs: number;
   pool: PoolTile[];
+  /** Stub for the future — gated by FEATURES.items. */
+  items: unknown[];
+  /** Stub for the future — gated by FEATURES.essences. */
+  essences: unknown[];
   grid: (PoolTile | null)[];
   spinInCycle: number; // 0..TITHE_SCHEDULE[titheRound].spins
   titheRound: number; // 0..TITHE_SCHEDULE.length
@@ -81,6 +85,8 @@ function initialState(): GameState {
     rerollOrbs: 0,
     removalOrbs: 0,
     pool,
+    items: [],
+    essences: [],
     grid: rollGrid(pool),
     spinInCycle: 0,
     titheRound: 0,
@@ -101,8 +107,6 @@ type Action =
   | { type: "BEGIN_SPIN" }
   | { type: "RESOLVE_SPIN" }
   | { type: "ACK_TITHE_PASS" }
-  | { type: "SKIP_TITHE_REMOVAL" }
-  | { type: "TAKE_TITHE_REMOVAL"; id: SymbolId }
   | { type: "PICK_DRAFT"; id: SymbolId }
   | { type: "REROLL_DRAFT" }
   | { type: "SKIP_DRAFT" }
@@ -212,40 +216,19 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...base, lastDraft: { offers: draftOffers, picked: null } };
     }
     case "ACK_TITHE_PASS": {
-      // Subtract the paid tithe cost (surplus carries over) and advance round.
-      // Offer one FREE pool removal before the next draft.
+      // Subtract the paid tithe cost (surplus carries over), advance round,
+      // and silently grant +1 Removal Orb (capped). The player spends it
+      // whenever they like through the Inventory modal — no thinning prompt.
       const paidStep = TITHE_SCHEDULE[state.titheRound];
       const remainingOrbs = Math.max(0, state.orbs - (paidStep?.orbs ?? 0));
       const draftOffers = pickDraft(DRAFT_POOL, state.titheRound + 1);
+      const nextRemovalOrbs = Math.min(REMOVAL_ORB_CAP, state.removalOrbs + 1);
       return {
         ...state,
         orbs: remainingOrbs,
+        removalOrbs: nextRemovalOrbs,
         spinInCycle: 0,
         titheRound: state.titheRound + 1,
-        phase: { kind: "tithe-removal", draftOffers },
-      };
-    }
-    case "SKIP_TITHE_REMOVAL": {
-      if (state.phase.kind !== "tithe-removal") return state;
-      const draftOffers = state.phase.draftOffers;
-      return {
-        ...state,
-        phase: { kind: "draft", offers: draftOffers },
-        lastDraft: { offers: draftOffers, picked: null },
-      };
-    }
-    case "TAKE_TITHE_REMOVAL": {
-      if (state.phase.kind !== "tithe-removal") return state;
-      const draftOffers = state.phase.draftOffers;
-      const idx = state.pool.findIndex((t) => t.id === action.id);
-      if (idx < 0) return state;
-      const nextPool = state.pool.slice();
-      nextPool.splice(idx, 1);
-      return {
-        ...state,
-        pool: nextPool,
-        grid: rollGrid(nextPool),
-        destroyedThisRun: state.destroyedThisRun + 1,
         phase: { kind: "draft", offers: draftOffers },
         lastDraft: { offers: draftOffers, picked: null },
       };
@@ -263,6 +246,8 @@ function reducer(state: GameState, action: Action): GameState {
     }
     case "REMOVE_FROM_POOL": {
       if (state.removalOrbs <= 0) return state;
+      // Discarding is purely player-initiated from the Inventory modal.
+      // Allowed any time the modal is open (idle phase only).
       if (state.phase.kind !== "idle") return state;
       const idx = state.pool.findIndex((t) => t.id === action.id);
       if (idx < 0) return state;

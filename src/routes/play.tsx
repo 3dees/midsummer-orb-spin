@@ -683,6 +683,7 @@ function Header(props: {
   spinInCycle: number;
   titheRound: number;
   titheSpinCount: number;
+  onOpenInventory: () => void;
 }) {
   const totalRounds = TITHE_SCHEDULE.length;
   const spinCount = props.titheSpinCount;
@@ -691,7 +692,15 @@ function Header(props: {
       <div className="hud-row">
         <Stat icon={<img src={orbImg} alt="" className="pixelart hud-icon" />} value={props.orbs} label="Light Orbs" />
         <Stat icon={<span className="hud-reroll">↺</span>} value={props.rerollOrbs} label="Reroll Orbs" />
-        <Stat icon={<span className="hud-removal">✕</span>} value={props.removalOrbs} label="Removal Orbs" />
+        <button
+          type="button"
+          className="stat stat-button"
+          title="Open your bag to discard symbols (costs 1 Removal Orb)"
+          onClick={(e) => { e.stopPropagation(); props.onOpenInventory(); }}
+        >
+          <span className="hud-removal">✕</span>
+          <span className="stat-value">{props.removalOrbs}</span>
+        </button>
       </div>
       <div className="hud-tithe">
         <span>Spin {Math.min(props.spinInCycle + 1, spinCount)} / {spinCount}</span>
@@ -1011,21 +1020,11 @@ function SpinBar(props: {
   floatScore: { value: number; key: number } | null;
   pool: PoolTile[];
   onViewPool: () => void;
-  removalOrbs: number;
-  onRemove: () => void;
 }) {
   return (
     <div className="spin-bar">
       <button className="view-pool-btn" onClick={props.onViewPool}>
-        View pool ({props.pool.length})
-      </button>
-      <button
-        className="view-pool-btn"
-        onClick={props.onRemove}
-        disabled={props.removalOrbs <= 0}
-        title="Spend a Removal Orb to permanently cut a symbol from your pool"
-      >
-        Remove ✕ {props.removalOrbs}
+        Bag ({props.pool.length})
       </button>
       <div className="spin-button-wrap">
         {props.floatScore && (

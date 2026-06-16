@@ -1142,9 +1142,8 @@ function SpinBar(props: {
   reveal: {
     idx: number;
     running: number;
-    popCell: number | null;
-    popValue: number;
-    popKey: number;
+    floats: { id: number; cell: number; value: number }[];
+    floatSeq: number;
     phase: "cells" | "rewards" | "total" | "done";
     spinSerial: number;
   } | null;

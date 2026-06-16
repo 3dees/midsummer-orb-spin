@@ -891,10 +891,10 @@ const PANEL_TITHE = {
 const SHOW_GRID_DEBUG = false; // flip to true to re-check alignment
 
 function seasonForRound(round: number): string {
-  if (round <= 3) return "Spring";
-  if (round <= 6) return "Early Summer";
-  if (round <= 9) return "High Summer";
-  if (round <= 12) return "Midsummer";
+  if (round <= 3) return "First Light";
+  if (round <= 6) return "Sun's Climb";
+  if (round <= 9) return "Golden Sun";
+  if (round <= 12) return "Midnight Sun";
   return "Endless";
 }
 
